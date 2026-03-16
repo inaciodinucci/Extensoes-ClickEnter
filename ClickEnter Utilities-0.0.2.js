@@ -7,6 +7,8 @@
 // @match        https://synsuite.clickenter.com.br/*
 // @match        https://clickenter.cxm.pipe.run/agent*
 // @grant        GM_xmlhttpRequest
+// @connect      generativelanguage.googleapis.com
+// @connect      api.openai.com
 // ==/UserScript==
 
 (function () {
@@ -46,8 +48,6 @@
     },
     SVG_ICON: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 16.5V14a6 6 0 0 0-12 0v2.5"/><path d="M4 16.5C4 15.12 5.12 14 6.5 14S9 15.12 9 16.5 7.88 19 6.5 19 4 17.88 4 16.5z"/><path d="M15 16.5c0-1.38 1.12-2.5 2.5-2.5S20 15.12 20 16.5 18.88 19 17.5 19 15 17.88 15 16.5z"/><path d="M6.5 19v1.5C6.5 21.88 7.62 23 9 23h2"/></svg>`
   };
-
-  // --- Módulos Principais ---
 
   class StorageManager {
     constructor() { }
@@ -112,8 +112,6 @@
     }
   }
 
-  // --- Módulo TMA (Tempo Médio de Atendimento) ---
-
   class TMAModule {
     constructor(storage) {
       this.storage = storage;
@@ -124,7 +122,6 @@
     registrarOuAtualizar(cliente, containerMensagem = null, sidebarTimestamp = null) {
       if (!cliente || cliente === 'Desconhecido') return;
 
-      // Tentar encontrar timestamp da mensagem de transferência
       let transferTimestamp = null;
       if (containerMensagem) {
         const msgs = containerMensagem.querySelectorAll('.talk-message-text');
@@ -137,17 +134,22 @@
         }
       }
 
-      // Se já registrado, atualizar apenas se encontrou timestamp de transferência mais preciso
       if (this.atendimentos[cliente]) {
         if (transferTimestamp && !this.atendimentos[cliente].fromTransferMsg) {
           this.atendimentos[cliente].start = transferTimestamp;
           this.atendimentos[cliente].fromTransferMsg = true;
           this.storage.salvar(CONFIG.KEYS.TMA_DATA, this.atendimentos);
+        } else if (sidebarTimestamp && (sidebarTimestamp - this.atendimentos[cliente].start > 7200000)) {
+          // Se a data da sidebar é mais de 2 horas mais nova que a registrada,
+          // significa que o mesmo cliente abriu um NOVO atendimento no mesmo dia.
+          this.atendimentos[cliente].start = sidebarTimestamp;
+          this.atendimentos[cliente].alerted60 = false;
+          this.atendimentos[cliente].fromTransferMsg = false;
+          this.storage.salvar(CONFIG.KEYS.TMA_DATA, this.atendimentos);
         }
         return;
       }
 
-      // Novo registro
       const timestamp = transferTimestamp || sidebarTimestamp || Date.now();
       this.atendimentos[cliente] = { start: timestamp, alerted60: false, fromTransferMsg: !!transferTimestamp };
       this.storage.salvar(CONFIG.KEYS.TMA_DATA, this.atendimentos);
@@ -194,7 +196,6 @@
       const originalTitle = document.title;
       document.title = '⚠ ' + msg;
       setTimeout(() => document.title = originalTitle, 5000);
-      alert(msg);
     }
 
     _parseDataPipeRun(dateStr) {
@@ -225,7 +226,6 @@
     async gerarRelato(lembretes, provider, apiKey) {
       if (!apiKey) throw new Error('API Key não configurada. Acesse as configurações (⚙).');
 
-      // Extrair mensagens do chat atual
       const historicoChat = this._extrairHistoricoChat();
 
       if ((!lembretes || lembretes.length === 0) && historicoChat.length === 0) {
@@ -247,9 +247,9 @@
       }
 
       prompt += `Gere um relato CURTO, DIRETO e OBJETIVO do atendimento, em um único parágrafo, sem o uso de markdown, tópicos ou títulos. O relato deve ir direto ao ponto.
-MUITO IMPORTANTE: Escreva o relato na **PRIMEIRA PESSOA DO SINGULAR ("eu fiz", "verifiquei", "orientei")**, pois este texto será copiado e colado pelo atendente (você) no sistema da empresa. Nunca use terceira pessoa como "o atendente fez".
-não precisa falar o nome do cliente ou citar o nome dele(a), preferivelmente comece com gênero correto "O/A cliente...", Exemplo do formato exato que eu desejo: "Cliente solicitou troca de senha, fiz a alteração da senha dela e informei sobre ela ser Case Sensitive, ela entendeu e confirmou, e posteriormente disse que iria se conectar quando chegasse em casa, depois disso o atendimento foi encerrado."
-Escreva de forma fluida e contínua, descrevendo resumidamente a solicitação inicial do cliente, a ação que foi tomada e a conclusão ou encaminhamento final do chat.`;
+  MUITO IMPORTANTE: Escreva o relato na **PRIMEIRA PESSOA DO SINGULAR ("eu fiz", "verifiquei", "orientei")**, pois este texto será copiado e colado pelo atendente (você) no sistema da empresa. Nunca use terceira pessoa como "o atendente fez".
+  não precisa falar o nome do cliente ou citar o nome dele(a), preferivelmente comece com gênero correto "O/A cliente...", Exemplo do formato exato que eu desejo: "Cliente solicitou troca de senha, fiz a alteração da senha dela e informei sobre ela ser Case Sensitive, ela entendeu e confirmou, e posteriormente disse que iria se conectar quando chegasse em casa, depois disso o atendimento foi encerrado."
+  Escreva de forma fluida e contínua, descrevendo resumidamente a solicitação inicial do cliente, a ação que foi tomada e a conclusão ou encaminhamento final do chat.`;
 
       if (provider === 'gemini') return this.chamarGemini(prompt, apiKey);
       return this.chamarChatGPT(prompt, apiKey);
@@ -262,7 +262,6 @@ Escreva de forma fluida e contínua, descrevendo resumidamente a solicitação i
 
       const elementosMsg = container.querySelectorAll('.talk-message-group');
       elementosMsg.forEach(el => {
-        // Extrair mensagens do chat atual
         const infoEl = el.querySelector('.talk-message-info');
         if (!infoEl) return;
         const rawInfo = infoEl.textContent.trim(); // ex: "91985251951 em 10/03/2026 10:56" ou "PipeBot em 10/03..."
@@ -270,14 +269,11 @@ Escreva de forma fluida e contínua, descrevendo resumidamente a solicitação i
         const autor = partesInfo[0] ? partesInfo[0].trim() : 'Desconhecido';
         const hora = partesInfo[1] ? partesInfo[1].trim() : '';
 
-        // Obter o texto da mensagem
         const textEl = el.querySelector('.talk-message-text');
         if (!textEl) return;
 
-        // Pega apenas o texto direto (ignora botões e extras complexos embaixo)
         let texto = textEl.innerText.trim();
 
-        // Pega botões do bot se houver (ex: SIM, NÃO)
         const botoes = el.querySelectorAll('.talk-buttons-content span');
         if (botoes.length > 0) {
           const opcoes = Array.from(botoes).map(b => `[${b.textContent}]`).join(' ');
@@ -396,134 +392,133 @@ Escreva de forma fluida e contínua, descrevendo resumidamente a solicitação i
       const style = document.createElement('style');
       style.id = 'ce-panel-styles';
       style.textContent = `
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        #${P} * { box-sizing:border-box; }
-        #${P} button {
-          background:#1D6CAE; color:#fff; /* Azul mais escuro e vibrante */
-          border:none; padding:7px 14px; border-radius:4px; cursor:pointer;
-          font-weight:600; font-size:13px; letter-spacing:0.2px;
-          transition:all 0.2s; box-shadow:0 1px 3px rgba(0,0,0,0.15);
-        }
-        #${P} button:hover { background:#15548a; transform:translateY(-1px); }
-        #${P} button:active { transform:scale(0.98); }
-        #${P} button.danger-btn {
-          background:#ED5565; padding:4px 9px;
-          box-shadow:0 1px 3px rgba(237,85,101,0.3);
-        }
-        #${P} button.danger-btn:hover { background:#d44d5c; }
-        #${P} button.secondary-btn {
-          background:#fafafa; border:1px solid #d4dfe3; color:#1D6CAE;
-          box-shadow:none; font-weight:500;
-        }
-        #${P} button.secondary-btn:hover { background:#eaeff2; color:#15548a; }
-        #${P} input, #${P} textarea, #${P} select {
-          background:#fff; border:1px solid #d5d5d5;
-          border-radius:4px; padding:9px 12px; font-family:inherit; font-size:13px;
-          color:#393939; transition:all 0.2s;
-        }
-        #${P} select {
-          height:auto; line-height:1.4;
-          text-overflow:ellipsis; white-space:nowrap;
-          overflow:hidden; appearance:auto;
-          padding-right:28px;
-        }
-        #${P} input:focus, #${P} textarea:focus, #${P} select:focus {
-          outline:none; border-color:#f59942;
-          box-shadow:none;
-        }
-        #${P} select option { background:#fff; color:#393939; }
-        #${P} hr { border:0; height:1px; background:#d4dfe3; margin:18px 0; }
-        #${P} h3 { margin-top:0; color:#2679B5; font-size:18px; font-weight:400; font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; }
-        #${P} .section-title {
-          color:#2f4050; font-size:13px; font-weight:600; text-transform:uppercase;
-          letter-spacing:1px; margin-bottom:10px; display:flex; align-items:center; gap:6px;
-        }
-        #${P} .section-card {
-          background:#fff; border:1px solid #e1e6eb;
-          border-radius:6px; padding:16px; margin-bottom:12px;
-          box-shadow:0 1px 2px rgba(0,0,0,0.05);
-        }
-        #${P} ul { margin:0; padding:0; list-style:none; }
-        #${P} li {
-          background:#fafafa; border:1px solid #e1e6eb;
-          border-radius:4px; padding:10px 12px; margin-bottom:6px;
-        }
-        .ce-timer-active-button { border-left: 4px solid #1D6CAE !important; background-color: rgba(29, 108, 174, 0.05) !important; transition: all 0.3s ease; }
-        .ce-timer-completed-button { border-left: 4px solid #ED5565 !important; background-color: rgba(237, 85, 101, 0.08) !important; animation: ce-pulse-bg 2s infinite; }
-        @keyframes ce-pulse-bg { 0% { background-color: rgba(237, 85, 101, 0.05); } 50% { background-color: rgba(237, 85, 101, 0.15); } 100% { background-color: rgba(237, 85, 101, 0.05); } }
-        .talk-group { overflow: hidden !important; }
-        .ce-tma-border-overlay {
-          position: absolute !important; inset: -3px !important;
-          border-radius: 6px !important; overflow: hidden !important;
-          pointer-events: none !important; z-index: 10 !important;
-          padding: 3px !important;
-          -webkit-mask:
-            linear-gradient(#fff 0 0) content-box,
-            linear-gradient(#fff 0 0);
-          -webkit-mask-composite: xor;
-          mask-composite: exclude;
-        }
-        .ce-tma-border-spinner {
-          position: absolute !important;
-          top: 50% !important; left: 50% !important;
-          width: 300% !important; height: 300% !important;
-        }
-        .ce-tma-border-spinner.warning {
-          background: conic-gradient(transparent 0deg, transparent 160deg, #ffc10788 180deg, #ffc107 230deg, #ffab00 270deg, #ff9800 310deg, #ff980088 330deg, transparent 340deg, transparent 360deg);
-          animation: ce-spin-ccw 2.5s linear infinite;
-        }
-        .ce-tma-border-spinner.critical {
-          background: conic-gradient(transparent 0deg, transparent 160deg, #ff174488 180deg, #ff1744 230deg, #d50000 270deg, #b71c1c 310deg, #b71c1c88 330deg, transparent 340deg, transparent 360deg);
-          animation: ce-spin-ccw 1.5s linear infinite;
-        }
-        @keyframes ce-spin-ccw {
-          from { transform: translate(-50%, -50%) rotate(360deg); }
-          to { transform: translate(-50%, -50%) rotate(0deg); }
-        }
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+          #${P} * { box-sizing:border-box; }
+          #${P} button {
+            background:#1D6CAE; color:#fff; /* Azul mais escuro e vibrante */
+            border:none; padding:7px 14px; border-radius:4px; cursor:pointer;
+            font-weight:600; font-size:13px; letter-spacing:0.2px;
+            transition:all 0.2s; box-shadow:0 1px 3px rgba(0,0,0,0.15);
+          }
+          #${P} button:hover { background:#15548a; transform:translateY(-1px); }
+          #${P} button:active { transform:scale(0.98); }
+          #${P} button.danger-btn {
+            background:#ED5565; padding:4px 9px;
+            box-shadow:0 1px 3px rgba(237,85,101,0.3);
+          }
+          #${P} button.danger-btn:hover { background:#d44d5c; }
+          #${P} button.secondary-btn {
+            background:#fafafa; border:1px solid #d4dfe3; color:#1D6CAE;
+            box-shadow:none; font-weight:500;
+          }
+          #${P} button.secondary-btn:hover { background:#eaeff2; color:#15548a; }
+          #${P} input, #${P} textarea, #${P} select {
+            background:#fff; border:1px solid #d5d5d5;
+            border-radius:4px; padding:9px 12px; font-family:inherit; font-size:13px;
+            color:#393939; transition:all 0.2s;
+          }
+          #${P} select {
+            height:auto; line-height:1.4;
+            text-overflow:ellipsis; white-space:nowrap;
+            overflow:hidden; appearance:auto;
+            padding-right:28px;
+          }
+          #${P} input:focus, #${P} textarea:focus, #${P} select:focus {
+            outline:none; border-color:#f59942;
+            box-shadow:none;
+          }
+          #${P} select option { background:#fff; color:#393939; }
+          #${P} hr { border:0; height:1px; background:#d4dfe3; margin:18px 0; }
+          #${P} h3 { margin-top:0; color:#2679B5; font-size:18px; font-weight:400; font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; }
+          #${P} .section-title {
+            color:#2f4050; font-size:13px; font-weight:600; text-transform:uppercase;
+            letter-spacing:1px; margin-bottom:10px; display:flex; align-items:center; gap:6px;
+          }
+          #${P} .section-card {
+            background:#fff; border:1px solid #e1e6eb;
+            border-radius:6px; padding:16px; margin-bottom:12px;
+            box-shadow:0 1px 2px rgba(0,0,0,0.05);
+          }
+          #${P} ul { margin:0; padding:0; list-style:none; }
+          #${P} li {
+            background:#fafafa; border:1px solid #e1e6eb;
+            border-radius:4px; padding:10px 12px; margin-bottom:6px;
+          }
+          .ce-timer-active-button { border-left: 4px solid #1D6CAE !important; background-color: rgba(29, 108, 174, 0.05) !important; transition: all 0.3s ease; }
+          .ce-timer-completed-button { border-left: 4px solid #ED5565 !important; background-color: rgba(237, 85, 101, 0.08) !important; animation: ce-pulse-bg 2s infinite; }
+          @keyframes ce-pulse-bg { 0% { background-color: rgba(237, 85, 101, 0.05); } 50% { background-color: rgba(237, 85, 101, 0.15); } 100% { background-color: rgba(237, 85, 101, 0.05); } }
+          .talk-group { overflow: hidden !important; }
+          .ce-tma-border-overlay {
+            position: absolute !important; inset: -3px !important;
+            border-radius: 6px !important; overflow: hidden !important;
+            pointer-events: none !important; z-index: 10 !important;
+            padding: 3px !important;
+            -webkit-mask:
+              linear-gradient(#fff 0 0) content-box,
+              linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+          }
+          .ce-tma-border-spinner {
+            position: absolute !important;
+            top: 50% !important; left: 50% !important;
+            width: 300% !important; height: 300% !important;
+          }
+          .ce-tma-border-spinner.warning {
+            background: conic-gradient(transparent 0deg, transparent 160deg, #ffc10788 180deg, #ffc107 230deg, #ffab00 270deg, #ff9800 310deg, #ff980088 330deg, transparent 340deg, transparent 360deg);
+            animation: ce-spin-ccw 2.5s linear infinite;
+          }
+          .ce-tma-border-spinner.critical {
+            background: conic-gradient(transparent 0deg, transparent 160deg, #ff174488 180deg, #ff1744 230deg, #d50000 270deg, #b71c1c 310deg, #b71c1c88 330deg, transparent 340deg, transparent 360deg);
+            animation: ce-spin-ccw 1.5s linear infinite;
+          }
+          @keyframes ce-spin-ccw {
+            from { transform: translate(-50%, -50%) rotate(360deg); }
+            to { transform: translate(-50%, -50%) rotate(0deg); }
+          }
 
-        .ce-alert-icon {
-          position: absolute;
-          left: 20px;
-          top: 36px;
-          background: #fff;
-          border-radius: 50%;
-          font-size: 14px;
-          line-height: 1;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-          z-index: 10;
-        }
+          .ce-alert-icon {
+            position: absolute;
+            left: 20px;
+            top: 36px;
+            background: #fff;
+            border-radius: 50%;
+            font-size: 14px;
+            line-height: 1;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            z-index: 10;
+          }
 
-        #${P} .settings-overlay {
-          position:absolute; inset:0; background:rgba(255,255,255,0.95);
-          z-index:10; padding:28px 22px; overflow:visible; overflow-y:auto;
-          animation:ceFadeIn 0.2s ease;
-        }
-        @keyframes ceFadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes cePulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-        .ce-timer-badge {
-          display:inline-flex; align-items:center; gap:3px; padding:3px 8px;
-          border-radius:12px; font-size:11px; font-weight:600; font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
-          margin-left:6px; vertical-align:middle; line-height:1; box-shadow:0 1px 2px rgba(0,0,0,0.1);
-        }
-        .ce-timer-badge.active { background:#1D6CAE; color:#fff; border:1px solid #15548a; }
-        .ce-timer-badge.critical { background:#ED5565; color:#fff; border:1px solid #d44d5c; }
-        .ce-timer-badge.completed {
-          background:#f89406; color:#fff; border:1px solid #c87604;
-          cursor:pointer; animation:cePulse 1.5s ease infinite;
-        }
-        #${CONFIG.DOM_IDS.RESIZE_HANDLE} {
-          position:fixed; top:0; width:6px; height:100%; cursor:col-resize;
-          z-index:100000; background:transparent;
-          transition: background 0.15s;
-        }
-        #${CONFIG.DOM_IDS.RESIZE_HANDLE}:hover,
-        #${CONFIG.DOM_IDS.RESIZE_HANDLE}.active {
-          background:rgba(29,108,174,0.35);
-        }
-      `;
+          #${P} .settings-overlay {
+            position:absolute; inset:0; background:rgba(255,255,255,0.95);
+            z-index:10; padding:28px 22px; overflow:visible; overflow-y:auto;
+            animation:ceFadeIn 0.2s ease;
+          }
+          @keyframes ceFadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+          @keyframes cePulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+          .ce-timer-badge {
+            display:inline-flex; align-items:center; gap:3px; padding:3px 8px;
+            border-radius:12px; font-size:11px; font-weight:600; font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
+            margin-left:6px; vertical-align:middle; line-height:1; box-shadow:0 1px 2px rgba(0,0,0,0.1);
+          }
+          .ce-timer-badge.active { background:#1D6CAE; color:#fff; border:1px solid #15548a; }
+          .ce-timer-badge.critical { background:#ED5565; color:#fff; border:1px solid #d44d5c; }
+          .ce-timer-badge.completed {
+            background:#f89406; color:#fff; border:1px solid #c87604;
+            cursor:pointer; animation:cePulse 1.5s ease infinite;
+          }
+          #${CONFIG.DOM_IDS.RESIZE_HANDLE} {
+            position:fixed; top:0; width:6px; height:100%; cursor:col-resize;
+            z-index:100000; background:transparent;
+            transition: background 0.15s;
+          }
+          #${CONFIG.DOM_IDS.RESIZE_HANDLE}:hover,
+          #${CONFIG.DOM_IDS.RESIZE_HANDLE}.active {
+            background:rgba(29,108,174,0.35);
+          }
+        `;
       document.head.appendChild(style);
 
-      // Header
       const header = document.createElement('div');
       Object.assign(header.style, { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' });
 
@@ -574,7 +569,6 @@ Escreva de forma fluida e contínua, descrevendo resumidamente a solicitação i
       );
       document.body.appendChild(painel);
 
-      // --- Resize Handle ---
       this._criarResizeHandle(painel);
     }
 
@@ -602,7 +596,6 @@ Escreva de forma fluida e contínua, descrevendo resumidamente a solicitação i
           newWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, newWidth));
 
           if (mode === 'chat') {
-            // Atualizar o CSS do modo chat
             this._aplicarCSSModoChat(newWidth);
           }
 
@@ -636,7 +629,6 @@ Escreva de forma fluida e contínua, descrevendo resumidamente a solicitação i
       overlay = document.createElement('div');
       overlay.className = 'settings-overlay';
 
-      // --- Header ---
       const btnBack = document.createElement('button');
       btnBack.className = 'secondary-btn';
       btnBack.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px;"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>Voltar`;
@@ -646,7 +638,6 @@ Escreva de forma fluida e contínua, descrevendo resumidamente a solicitação i
       const title = document.createElement('h3');
       title.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:8px;"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1.08 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1.08z"/></svg>Configurações`;
 
-      // --- Card IA ---
       const cardIA = document.createElement('div');
       cardIA.className = 'section-card';
 
@@ -681,7 +672,6 @@ Escreva de forma fluida e contínua, descrevendo resumidamente a solicitação i
 
       cardIA.append(cardIATitle, lbl1, sel, lbl2, inputGemini, lbl3, inputOpenAI);
 
-      // --- Card TMA ---
       const cardTMA = document.createElement('div');
       cardTMA.className = 'section-card';
 
@@ -694,7 +684,6 @@ Escreva de forma fluida e contínua, descrevendo resumidamente a solicitação i
       Object.assign(tmaDesc.style, { fontSize: '11px', color: '#8089A0', marginBottom: '14px', lineHeight: '1.4' });
       tmaDesc.textContent = 'Configure os limites de tempo (em minutos) para os alertas visuais na sidebar.';
 
-      // Alerta row
       const alertaRow = document.createElement('div');
       Object.assign(alertaRow.style, { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' });
 
@@ -722,7 +711,6 @@ Escreva de forma fluida e contínua, descrevendo resumidamente a solicitação i
 
       alertaRow.append(alertaDot, alertaLabelWrap, inputAlerta, alertaUnit);
 
-      // Crítico row
       const criticoRow = document.createElement('div');
       Object.assign(criticoRow.style, { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' });
 
@@ -752,7 +740,6 @@ Escreva de forma fluida e contínua, descrevendo resumidamente a solicitação i
 
       cardTMA.append(cardTMATitle, tmaDesc, alertaRow, criticoRow);
 
-      // --- Card Exibição ---
       const cardExib = document.createElement('div');
       cardExib.className = 'section-card';
 
@@ -776,7 +763,6 @@ Escreva de forma fluida e contínua, descrevendo resumidamente a solicitação i
 
       cardExib.append(cardExibTitle, exibDesc, lblExib, selMode);
 
-      // --- Botão Salvar ---
       const btnSave = document.createElement('button');
       btnSave.textContent = 'Salvar Configurações';
       Object.assign(btnSave.style, { width: '100%', marginTop: '8px', padding: '10px', fontSize: '14px' });
@@ -885,7 +871,6 @@ Escreva de forma fluida e contínua, descrevendo resumidamente a solicitação i
 
       divInput.append(textarea, btnAdd);
 
-      // --- AI Report ---
       const aiSection = document.createElement('div');
       Object.assign(aiSection.style, { marginTop: '14px', borderTop: '1px solid #d4dfe3', paddingTop: '14px' });
       const aiTitle = document.createElement('div');
@@ -985,8 +970,6 @@ Escreva de forma fluida e contínua, descrevendo resumidamente a solicitação i
       return wrapper;
     }
 
-    // --- Renderizadores de Lista ---
-
     renderizarListaLembretes() {
       const ul = document.getElementById(CONFIG.DOM_IDS.LISTA_LEMBRETES);
       if (!ul) return;
@@ -1056,8 +1039,6 @@ Escreva de forma fluida e contínua, descrevendo resumidamente a solicitação i
       });
     }
 
-    // --- Ações / Callbacks ---
-
     handleIniciarCronometro(minutos) {
       const spanStatus = document.getElementById(CONFIG.DOM_IDS.CRONOMETRO_STATUS);
       if (!spanStatus) return;
@@ -1101,8 +1082,6 @@ Escreva de forma fluida e contínua, descrevendo resumidamente a solicitação i
           const originalTitle = document.title;
           document.title = '(Alerta) ' + msgAviso;
           setTimeout(() => document.title = originalTitle, 5000);
-
-          alert(msgAviso);
         }
       );
     }
@@ -1194,13 +1173,13 @@ Escreva de forma fluida e contínua, descrevendo resumidamente a solicitação i
         document.head.appendChild(styleEl);
       }
       styleEl.textContent = `
-        #talk-panel,
-        .talk-panel,
-        .talk-commands {
-          width: calc(100% - ${width}px) !important;
-          transition: width 0.15s ease !important;
-        }
-      `;
+          #talk-panel,
+          .talk-panel,
+          .talk-commands {
+            width: calc(100% - ${width}px) !important;
+            transition: width 0.15s ease !important;
+          }
+        `;
     }
 
     _limparModoChat() {
@@ -1294,8 +1273,6 @@ Escreva de forma fluida e contínua, descrevendo resumidamente a solicitação i
       }
     }
 
-    // --- Injeção Constante na Interface (Navbar, Ícone Flutuante) ---
-
     injetarIcones() {
       this._injetarNaNavbar();
       this._injetarEmFallback();
@@ -1385,7 +1362,6 @@ Escreva de forma fluida e contínua, descrevendo resumidamente a solicitação i
         divWrapper.addEventListener('mouseenter', () => { divWrapper.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)'; divWrapper.style.transform = 'scale(1.08)'; });
         divWrapper.addEventListener('mouseleave', () => { divWrapper.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)'; divWrapper.style.transform = 'scale(1)'; });
 
-        // --- Lógica de drag por toda a tela ---
         let dragging = false, hasDragged = false, startX = 0, startY = 0, offsetX = 0, offsetY = 0;
         const DRAG_THRESHOLD = 5;
 
@@ -1616,7 +1592,7 @@ Escreva de forma fluida e contínua, descrevendo resumidamente a solicitação i
             const spinner = overlay.querySelector('.ce-tma-border-spinner');
             spinner.classList.remove('warning', 'critical');
             spinner.classList.add(statusTMA.critico ? 'critical' : 'warning');
-            
+
             // Adicionar também a borda esquerda (simulando ce-timer-completed-button / channel-active)
             btn.style.borderLeft = statusTMA.critico ? '4px solid #d50000' : '4px solid #f89406';
           } else {
@@ -1663,8 +1639,9 @@ Escreva de forma fluida e contínua, descrevendo resumidamente a solicitação i
         }
       }
 
-      // Limpar clientes que saíram da sidebar
-      this.ui.tma.limparClientesAusentes(sidebarClients);
+      // Limpar clientes que saíram da sidebar foi removido para evitar falsos
+      // resgates quando o usuário usa o campo de busca ou troca de aba no PipeRun.
+      // O método _limparDadosAntigos() já limpará registros após 24 horas.
 
       // Verificar alertas globais de TMA
       this.ui.tma.verificarAlertaGlobal();
@@ -1708,8 +1685,6 @@ Escreva de forma fluida e contínua, descrevendo resumidamente a solicitação i
     }
   }
 
-  // --- Inicialização Core ---
-
   class ClickEnterExtension {
     constructor() {
       this.storage = new StorageManager();
@@ -1727,7 +1702,6 @@ Escreva de forma fluida e contínua, descrevendo resumidamente a solicitação i
     }
   }
 
-  // Bootstrap do aplicativo
   const app = new ClickEnterExtension();
   app.boot();
 
