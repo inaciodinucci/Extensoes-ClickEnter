@@ -1169,8 +1169,9 @@ Escreva de forma fluida e contínua, descrevendo resumidamente a solicitação i
       painel.style.right = '0px';
       painel.style.width = width + 'px';
       painel.style.height = `calc(100vh - ${chatRect.top}px)`;
-      painel.style.borderLeft = '1px solid #d4dfe3';
-      painel.style.boxShadow = 'none';
+      // Ajuste de zIndex flexível: bem baixo para garantir que absolutely NOTHING
+      // do topo do chat (dropdowns, tooltips, modais) fique atrás do painel.
+      painel.style.zIndex = '10';
 
       this._aplicarCSSModoChat(width);
 
@@ -1615,8 +1616,12 @@ Escreva de forma fluida e contínua, descrevendo resumidamente a solicitação i
             const spinner = overlay.querySelector('.ce-tma-border-spinner');
             spinner.classList.remove('warning', 'critical');
             spinner.classList.add(statusTMA.critico ? 'critical' : 'warning');
+            
+            // Adicionar também a borda esquerda (simulando ce-timer-completed-button / channel-active)
+            btn.style.borderLeft = statusTMA.critico ? '4px solid #d50000' : '4px solid #f89406';
           } else {
             if (overlay) overlay.remove();
+            btn.style.borderLeft = ''; // Reset
           }
         }
       });
