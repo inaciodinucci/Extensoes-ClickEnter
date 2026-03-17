@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ClickEnter Utilities
 // @namespace    http://tampermonkey.net/
-// @version      0.0.4
+// @version      0.0.3
 // @description  Utilitários para melhorar a produtividade de atendimento no PipeRun
 // @author       inaciodinucci
 // @match        https://synsuite.clickenter.com.br/*
@@ -428,7 +428,7 @@
       this.timer = timer;
       this.ai = ai;
       this.tma = tma;
-      this.updateManager = new UpdateManager('0.0.3'); // Current version matched with @version header
+      this.updateManager = new UpdateManager(typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.3');
       this.clienteAtual = 'Desconhecido';
       this.settingsVisible = false;
     }
