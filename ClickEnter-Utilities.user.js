@@ -1,12 +1,14 @@
 // ==UserScript==
 // @name         ClickEnter Utilities
 // @namespace    http://tampermonkey.net/
-// @version      0.0.2
+// @version      0.0.3
 // @description  Utilitários para melhorar a produtividade de atendimento no PipeRun
 // @author       inaciodinucci
 // @match        https://synsuite.clickenter.com.br/*
 // @match        https://clickenter.cxm.pipe.run/agent*
 // @grant        GM_xmlhttpRequest
+// @downloadURL  https://raw.githubusercontent.com/inaciodinucci/Extensoes-ClickEnter/main/ClickEnter-Utilities.user.js
+// @updateURL    https://raw.githubusercontent.com/inaciodinucci/Extensoes-ClickEnter/main/ClickEnter-Utilities.user.js
 // @connect      generativelanguage.googleapis.com
 // @connect      api.openai.com
 // ==/UserScript==
@@ -141,15 +143,12 @@
           this.atendimentos[cliente].lastSeen = Date.now();
           this.storage.salvar(CONFIG.KEYS.TMA_DATA, this.atendimentos);
         } else if (sidebarTimestamp && (sidebarTimestamp - this.atendimentos[cliente].start > 7200000)) {
-          // Se a data da sidebar é mais de 2 horas mais nova que a registrada,
-          // significa que o mesmo cliente abriu um NOVO atendimento no mesmo dia.
           this.atendimentos[cliente].start = sidebarTimestamp;
           this.atendimentos[cliente].alerted60 = false;
           this.atendimentos[cliente].fromTransferMsg = false;
           this.atendimentos[cliente].lastSeen = Date.now();
           this.storage.salvar(CONFIG.KEYS.TMA_DATA, this.atendimentos);
         } else {
-          // Apenas atualiza o last_seen se a data for muito parecida
           this.atendimentos[cliente].lastSeen = Date.now();
           this.storage.salvar(CONFIG.KEYS.TMA_DATA, this.atendimentos);
         }
@@ -163,9 +162,8 @@
 
     obterStatus(cliente) {
       const dados = this.atendimentos[cliente];
-      // Se não tem dados, ou se o cliente não foi visto na sidebar/painel recentemente (> 3 min), não exibir TMA (ignora fantasmas)
       if (!dados || (dados.lastSeen && (Date.now() - dados.lastSeen > 180000))) {
-         return { minutos: 0, alertar: false, critico: false };
+        return { minutos: 0, alertar: false, critico: false };
       }
       const minutos = Math.floor((Date.now() - dados.start) / 60000);
       const limiteAlerta = this.storage.obter(CONFIG.KEYS.TMA_ALERTA_MIN, 35);
@@ -177,7 +175,7 @@
       const agora = Date.now();
       for (const cliente in this.atendimentos) {
         const dados = this.atendimentos[cliente];
-        
+
         // Ignorar alertas globais para clientes que não foram vistos na sidebar 
         // ou chat ativo nos últimos 2 minutos. (Evitar alertas de chats já fechados)
         if (dados.lastSeen && (agora - dados.lastSeen > 120000)) continue;
@@ -225,7 +223,7 @@
           delete this.atendimentos[key];
           mudou = true;
         } else if (!dados.lastSeen) {
-          dados.lastSeen = agora; 
+          dados.lastSeen = agora;
           mudou = true;
         }
       }
@@ -246,7 +244,8 @@
       let prompt = `Gere um relato técnico de atendimento ao cliente.\n\n`;
 
       if (lembretes && lembretes.length > 0) {
-        prompt += `*Pontos registrados pelo atendente:*\n${lembretes.map((l, i) => `${i + 1}. ${l}`).join('\n')}\n\n`;
+        prompt += `INSTRUÇÃO CRÍTICA: O atendente fez as seguintes ANOTAÇÕES VITAIS sobre o atendimento. O seu resumo DEVE obrigatoriamente focar e se basear nessas informações centrais:\n`;
+        prompt += `${lembretes.map((l, i) => `${i + 1}. ${l}`).join('\n')}\n\n`;
       }
 
       if (historicoChat.length > 0) {
@@ -257,10 +256,10 @@
         prompt += `\n`;
       }
 
-      prompt += `Gere um relato CURTO, DIRETO e OBJETIVO do atendimento, em um único parágrafo, sem o uso de markdown, tópicos ou títulos. O relato deve ir direto ao ponto.
-  MUITO IMPORTANTE: Escreva o relato na **PRIMEIRA PESSOA DO SINGULAR ("eu fiz", "verifiquei", "orientei")**, pois este texto será copiado e colado pelo atendente (você) no sistema da empresa. Nunca use terceira pessoa como "o atendente fez".
-  não precisa falar o nome do cliente ou citar o nome dele(a), preferivelmente comece com gênero correto "O/A cliente...", Exemplo do formato exato que eu desejo: "Cliente solicitou troca de senha, fiz a alteração da senha dela e informei sobre ela ser Case Sensitive, ela entendeu e confirmou, e posteriormente disse que iria se conectar quando chegasse em casa, depois disso o atendimento foi encerrado."
-  Escreva de forma fluida e contínua, descrevendo resumidamente a solicitação inicial do cliente, a ação que foi tomada e a conclusão ou encaminhamento final do chat.`;
+      prompt += `Gere um relato CURTO, DIRETO e OBJETIVO do atendimento, em um único parágrafo, sem o uso de markdown, tópicos ou títulos. O relato deve ir direto ao ponto e ser técnico com as alterações ou ações do técnico/atendente.
+      MUITO IMPORTANTE: Escreva o relato na **PRIMEIRA PESSOA DO SINGULAR ("eu fiz", "verifiquei", "orientei")**, pois este texto será copiado e colado pelo atendente (você) no sistema da empresa. Nunca use terceira pessoa como "o atendente fez".
+      não precisa falar o nome do cliente ou citar o nome dele(a), preferivelmente comece com gênero correto "O/A cliente...". Exemplo do formato exato que eu desejo: "Cliente solicitou troca de senha, fiz a alteração da senha dela e informei sobre ser Case Sensitive, ela entendeu e confirmou. Posteriormente disse que iria testar em casa, e o atendimento foi encerrado."
+      Escreva de forma fluida. Se o atendente forneceu "Anotações Vitais", use-as como o FATO PRINCIPAL da sua resposta; o histórico de chat serve APENAS como contexto secundário.`;
 
       if (provider === 'gemini') return this.chamarGemini(prompt, apiKey);
       return this.chamarChatGPT(prompt, apiKey);
@@ -370,12 +369,66 @@
     }
   }
 
+  class UpdateManager {
+    constructor(currentVersion) {
+      this.currentVersion = currentVersion;
+      this.updateUrl = 'https://raw.githubusercontent.com/inaciodinucci/Extensoes-ClickEnter/main/ClickEnter-Utilities.user.js';
+      this.isNewerVersion = false;
+    }
+
+    async checkForUpdate() {
+      return new Promise((resolve) => {
+        if (typeof GM_xmlhttpRequest === 'undefined') {
+          resolve(false);
+          return;
+        }
+
+        GM_xmlhttpRequest({
+          method: 'GET',
+          url: this.updateUrl,
+          onload: (res) => {
+            if (res.status === 200) {
+              const remoteVersion = this._parseVersion(res.responseText);
+              if (remoteVersion && this._isNewer(remoteVersion, this.currentVersion)) {
+                this.isNewerVersion = true;
+                resolve(true);
+              } else {
+                resolve(false);
+              }
+            } else {
+              resolve(false);
+            }
+          },
+          onerror: () => resolve(false)
+        });
+      });
+    }
+
+    _parseVersion(text) {
+      const match = text.match(/\/\/\s*@version\s+([\d.]+)/);
+      return match ? match[1] : null;
+    }
+
+    _isNewer(remote, local) {
+      const r = remote.split('.').map(Number);
+      const l = local.split('.').map(Number);
+      for (let i = 0; i < Math.max(r.length, l.length); i++) {
+        const rv = r[i] || 0;
+        const lv = l[i] || 0;
+        if (rv > lv) return true;
+        if (rv < lv) return false;
+      }
+      return false;
+    }
+  }
+
   class UIManager {
     constructor(storage, timer, ai, tma) {
       this.storage = storage;
       this.timer = timer;
       this.ai = ai;
       this.tma = tma;
+      this.updateManager = new UpdateManager('0.0.3'); // Current version matched with @version header
       this.clienteAtual = 'Desconhecido';
       this.settingsVisible = false;
     }
@@ -391,147 +444,177 @@
       painel.id = P;
       Object.assign(painel.style, {
         position: 'fixed', top: '0', right: `-${savedWidth}px`, width: `${savedWidth}px`, height: '100%',
-        background: '#e4e6e9',
-        borderLeft: '1px solid #d4dfe3',
-        boxShadow: '-4px 0 24px rgba(0,0,0,0.15)',
+        background: '#ffffff', /* Pure white background as requested */
+        borderLeft: '1px solid rgba(0,0,0,0.1)',
+        boxShadow: '-4px 0 24px rgba(0,0,0,0.2)',
         zIndex: '99999',
         transition: 'right 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)',
-        padding: '28px 22px', overflowY: 'auto',
-        fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif', color: '#393939'
+        padding: '0', /* Zeroing padding to let header/content handle it */
+        overflow: 'hidden', /* For internal scrolling */
+        display: 'flex', flexDirection: 'column',
+        fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif', color: '#262626'
       });
 
       const style = document.createElement('style');
       style.id = 'ce-panel-styles';
       style.textContent = `
-          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-          #${P} * { box-sizing:border-box; }
-          #${P} button {
-            background:#1D6CAE; color:#fff; /* Azul mais escuro e vibrante */
-            border:none; padding:7px 14px; border-radius:4px; cursor:pointer;
-            font-weight:600; font-size:13px; letter-spacing:0.2px;
-            transition:all 0.2s; box-shadow:0 1px 3px rgba(0,0,0,0.15);
-          }
-          #${P} button:hover { background:#15548a; transform:translateY(-1px); }
-          #${P} button:active { transform:scale(0.98); }
-          #${P} button.danger-btn {
-            background:#ED5565; padding:4px 9px;
-            box-shadow:0 1px 3px rgba(237,85,101,0.3);
-          }
-          #${P} button.danger-btn:hover { background:#d44d5c; }
-          #${P} button.secondary-btn {
-            background:#fafafa; border:1px solid #d4dfe3; color:#1D6CAE;
-            box-shadow:none; font-weight:500;
-          }
-          #${P} button.secondary-btn:hover { background:#eaeff2; color:#15548a; }
-          #${P} input, #${P} textarea, #${P} select {
-            background:#fff; border:1px solid #d5d5d5;
-            border-radius:4px; padding:9px 12px; font-family:inherit; font-size:13px;
-            color:#393939; transition:all 0.2s;
-          }
-          #${P} select {
-            height:auto; line-height:1.4;
-            text-overflow:ellipsis; white-space:nowrap;
-            overflow:hidden; appearance:auto;
-            padding-right:28px;
-          }
-          #${P} input:focus, #${P} textarea:focus, #${P} select:focus {
-            outline:none; border-color:#f59942;
-            box-shadow:none;
-          }
-          #${P} select option { background:#fff; color:#393939; }
-          #${P} hr { border:0; height:1px; background:#d4dfe3; margin:18px 0; }
-          #${P} h3 { margin-top:0; color:#2679B5; font-size:18px; font-weight:400; font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; }
-          #${P} .section-title {
-            color:#2f4050; font-size:13px; font-weight:600; text-transform:uppercase;
-            letter-spacing:1px; margin-bottom:10px; display:flex; align-items:center; gap:6px;
-          }
-          #${P} .section-card {
-            background:#fff; border:1px solid #e1e6eb;
-            border-radius:6px; padding:16px; margin-bottom:12px;
-            box-shadow:0 1px 2px rgba(0,0,0,0.05);
-          }
-          #${P} ul { margin:0; padding:0; list-style:none; }
-          #${P} li {
-            background:#fafafa; border:1px solid #e1e6eb;
-            border-radius:4px; padding:10px 12px; margin-bottom:6px;
-          }
-          .ce-timer-active-button { border-left: 4px solid #1D6CAE !important; background-color: rgba(29, 108, 174, 0.05) !important; transition: all 0.3s ease; }
-          .ce-timer-completed-button { border-left: 4px solid #ED5565 !important; background-color: rgba(237, 85, 101, 0.08) !important; animation: ce-pulse-bg 2s infinite; }
-          @keyframes ce-pulse-bg { 0% { background-color: rgba(237, 85, 101, 0.05); } 50% { background-color: rgba(237, 85, 101, 0.15); } 100% { background-color: rgba(237, 85, 101, 0.05); } }
-          .talk-group { overflow: hidden !important; }
-          .ce-tma-border-overlay {
-            position: absolute !important; inset: -3px !important;
-            border-radius: 6px !important; overflow: hidden !important;
-            pointer-events: none !important; z-index: 10 !important;
-            padding: 3px !important;
-            -webkit-mask:
-              linear-gradient(#fff 0 0) content-box,
-              linear-gradient(#fff 0 0);
-            -webkit-mask-composite: xor;
-            mask-composite: exclude;
-          }
-          .ce-tma-border-spinner {
-            position: absolute !important;
-            top: 50% !important; left: 50% !important;
-            width: 300% !important; height: 300% !important;
-          }
-          .ce-tma-border-spinner.warning {
-            background: conic-gradient(transparent 0deg, transparent 160deg, #ffc10788 180deg, #ffc107 230deg, #ffab00 270deg, #ff9800 310deg, #ff980088 330deg, transparent 340deg, transparent 360deg);
-            animation: ce-spin-ccw 2.5s linear infinite;
-          }
-          .ce-tma-border-spinner.critical {
-            background: conic-gradient(transparent 0deg, transparent 160deg, #ff174488 180deg, #ff1744 230deg, #d50000 270deg, #b71c1c 310deg, #b71c1c88 330deg, transparent 340deg, transparent 360deg);
-            animation: ce-spin-ccw 1.5s linear infinite;
-          }
-          @keyframes ce-spin-ccw {
-            from { transform: translate(-50%, -50%) rotate(360deg); }
-            to { transform: translate(-50%, -50%) rotate(0deg); }
-          }
+              @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+              #${P} * { box-sizing:border-box; }
+              #${P} button {
+                background:#1D6CAE; color:#fff; /* Vibrant blue instead of navy */
+                border:none; padding:7px 14px; border-radius:0; cursor:pointer;
+                font-weight:600; font-size:13px; letter-spacing:0.2px;
+                transition:all 0.2s; box-shadow:0 1px 3px rgba(0,0,0,0.15);
+              }
+              #${P} button:hover { background:#15548a; transform:translateY(-1px); }
+              #${P} button:active { transform:scale(0.98); }
+              #${P} button.danger-btn {
+                background:#ED5565; padding:4px 9px;
+                box-shadow:0 1px 3px rgba(237,85,101,0.3);
+              }
+              #${P} button.danger-btn:hover { background:#d44d5c; }
+              #${P} button.secondary-btn {
+                background:#fff; border:1px solid #d4dfe3; color:#1D6CAE;
+                box-shadow:none; font-weight:500;
+              }
+              #${P} button.secondary-btn:hover { background:#f5f5f5; color:#15548a; }
+              #${P} input, #${P} textarea, #${P} select {
+                background:#fff; border:1px solid #d5d5d5;
+                border-radius:0; padding:9px 12px; font-family:inherit; font-size:13px;
+                color:#262626; transition:all 0.2s;
+              }
+              #${P} select {
+                height:auto; line-height:1.4;
+                text-overflow:ellipsis; white-space:nowrap;
+                overflow:hidden; appearance:auto;
+                padding-right:28px;
+              }
+              #${P} select option { background:#fff; color:#393939; }
+              #${P} hr { border:0; height:1px; background:#d4dfe3; margin:18px 0; }
+              #${P} h3 { margin-top:0; color:#2679B5; font-size:18px; font-weight:400; font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; }
+              #${P} .section-title {
+                color:#2f4050; font-size:12px; font-weight:700; text-transform:uppercase;
+                letter-spacing:0.8px; margin-bottom:8px; display:flex; align-items:center; gap:6px;
+              }
+              #${P} .section-card {
+                background:#fff; border:1px solid #eee;
+                border-radius:0; /* Square cards */
+                padding:12px 14px; margin-bottom:12px;
+                box-shadow:2px 2px 3px rgba(0,0,0,0.05);
+                position:relative;
+              }
+              #${P} .panel-content-scroll {
+                flex: 1; padding: 20px 22px; overflow-y: auto;
+              }
+              #${P} .panel-header {
+                background:#fff; height:65px; min-height:65px;
+                padding:0 20px; display:flex; align-items:center;
+                justify-content:space-between; border-bottom:1px solid rgba(0,0,0,0.05);
+                box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+              }
+              #${P} ul { margin:0; padding:0; list-style:none; }
+              #${P} li {
+                background:#f9f9f9; border:1px solid #eee;
+                border-radius:0; padding:10px 12px; margin-bottom:6px;
+              }
+              .ce-timer-active-button { border-left: 4px solid #1D6CAE !important; background-color: rgba(29, 108, 174, 0.05) !important; transition: all 0.3s ease; }
+              .ce-timer-completed-button { border-left: 4px solid #ED5565 !important; background-color: rgba(237, 85, 101, 0.08) !important; animation: ce-pulse-bg 2s infinite; }
+              @keyframes ce-pulse-bg { 0% { background-color: rgba(237, 85, 101, 0.05); } 50% { background-color: rgba(237, 85, 101, 0.15); } 100% { background-color: rgba(237, 85, 101, 0.05); } }
+              .talk-group { overflow: hidden !important; }
+              .ce-tma-border-overlay {
+                position: absolute !important; inset: -3px !important;
+                border-radius: 0 !important; overflow: hidden !important;
+                pointer-events: none !important; z-index: 10 !important;
+                padding: 3px !important;
+                -webkit-mask:
+                  linear-gradient(#fff 0 0) content-box,
+                  linear-gradient(#fff 0 0);
+                -webkit-mask-composite: xor;
+                mask-composite: exclude;
+              }
+              .ce-tma-border-spinner {
+                position: absolute !important;
+                top: 50% !important; left: 50% !important;
+                width: 300% !important; height: 300% !important;
+              }
+              .ce-tma-border-spinner.warning {
+                background: conic-gradient(transparent 0deg, transparent 160deg, #ffc10788 180deg, #ffc107 230deg, #ffab00 270deg, #ff9800 310deg, #ff980088 330deg, transparent 340deg, transparent 360deg);
+                animation: ce-spin-ccw 2.5s linear infinite;
+              }
+              .ce-tma-border-spinner.critical {
+                background: conic-gradient(transparent 0deg, transparent 160deg, #ff174488 180deg, #ff1744 230deg, #d50000 270deg, #b71c1c 310deg, #b71c1c88 330deg, transparent 340deg, transparent 360deg);
+                animation: ce-spin-ccw 1.5s linear infinite;
+              }
+              @keyframes ce-spin-ccw {
+                from { transform: translate(-50%, -50%) rotate(360deg); }
+                to { transform: translate(-50%, -50%) rotate(0deg); }
+              }
 
-          .ce-alert-icon {
-            position: absolute;
-            left: 20px;
-            top: 36px;
-            background: #fff;
-            border-radius: 50%;
-            font-size: 14px;
-            line-height: 1;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-            z-index: 10;
-          }
+              .ce-alert-icon {
+                position: absolute;
+                left: 20px;
+                top: 36px;
+                background: #fff;
+                border-radius: 0;
+                font-size: 14px;
+                line-height: 1;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+                z-index: 10;
+              }
 
-          #${P} .settings-overlay {
-            position:absolute; inset:0; background:rgba(255,255,255,0.95);
-            z-index:10; padding:28px 22px; overflow:visible; overflow-y:auto;
-            animation:ceFadeIn 0.2s ease;
-          }
-          @keyframes ceFadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-          @keyframes cePulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-          .ce-timer-badge {
-            display:inline-flex; align-items:center; gap:3px; padding:3px 8px;
-            border-radius:12px; font-size:11px; font-weight:600; font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
-            margin-left:6px; vertical-align:middle; line-height:1; box-shadow:0 1px 2px rgba(0,0,0,0.1);
-          }
-          .ce-timer-badge.active { background:#1D6CAE; color:#fff; border:1px solid #15548a; }
-          .ce-timer-badge.critical { background:#ED5565; color:#fff; border:1px solid #d44d5c; }
-          .ce-timer-badge.completed {
-            background:#f89406; color:#fff; border:1px solid #c87604;
-            cursor:pointer; animation:cePulse 1.5s ease infinite;
-          }
-          #${CONFIG.DOM_IDS.RESIZE_HANDLE} {
-            position:fixed; top:0; width:6px; height:100%; cursor:col-resize;
-            z-index:100000; background:transparent;
-            transition: background 0.15s;
-          }
-          #${CONFIG.DOM_IDS.RESIZE_HANDLE}:hover,
-          #${CONFIG.DOM_IDS.RESIZE_HANDLE}.active {
-            background:rgba(29,108,174,0.35);
-          }
-        `;
+              #${P} .settings-overlay {
+                position:absolute; inset:0; background:rgba(255,255,255,0.95);
+                z-index:10; padding:28px 22px; overflow:visible; overflow-y:auto;
+                animation:ceFadeIn 0.2s ease;
+              }
+              @keyframes ceFadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+              @keyframes cePulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+              .ce-timer-badge {
+                display:inline-flex; align-items:center; gap:3px; padding:3px 8px;
+                border-radius:0; font-size:11px; font-weight:600; font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
+                margin-left:6px; vertical-align:middle; line-height:1; box-shadow:0 1px 2px rgba(0,0,0,0.1);
+              }
+              .ce-timer-badge.active { background:#1D6CAE; color:#fff; border:1px solid #15548a; }
+              .ce-timer-badge.critical { background:#ED5565; color:#fff; border:1px solid #d44d5c; }
+              .ce-timer-badge.completed {
+                background:#f89406; color:#fff; border:1px solid #c87604;
+                cursor:pointer; animation:cePulse 1.5s ease infinite;
+              }
+              #${CONFIG.DOM_IDS.RESIZE_HANDLE} {
+                position:fixed; top:0; width:6px; height:100%; cursor:col-resize;
+                z-index:100000; background:transparent;
+                transition: background 0.15s;
+              }
+              #${CONFIG.DOM_IDS.RESIZE_HANDLE}:hover,
+              #${CONFIG.DOM_IDS.RESIZE_HANDLE}.active {
+                background:rgba(29,108,174,0.35);
+              }
+              #${P} .update-btn {
+                background: #28a745 !important;
+                color: #fff !important;
+                border: none;
+                padding: 5px 10px;
+                font-size: 11px;
+                font-weight: 700;
+                border-radius: 4px;
+                cursor: pointer;
+                animation: ce-pulse-green 2s infinite;
+                display: none;
+                align-items: center;
+                gap: 4px;
+                transition: all 0.2s;
+              }
+              #${P} .update-btn:hover { background: #218838 !important; transform: translateY(-1px); }
+              @keyframes ce-pulse-green {
+                0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.4); }
+                70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
+                100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+              }
+            `;
       document.head.appendChild(style);
 
       const header = document.createElement('div');
-      Object.assign(header.style, { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' });
+      header.className = 'panel-header';
 
       const titleWrap = document.createElement('div');
       titleWrap.style.display = 'flex'; titleWrap.style.alignItems = 'center'; titleWrap.style.gap = '10px';
@@ -540,44 +623,66 @@
       Object.assign(iconH.style, { width: '26px', height: '26px', color: '#1D6CAE', display: 'flex' });
       const titulo = document.createElement('h3');
       titulo.textContent = 'Atendimento';
+      titulo.style.margin = '0'; titulo.style.fontSize = '18px'; titulo.style.color = '#1D6CAE';
       titleWrap.append(iconH, titulo);
 
       const headerBtns = document.createElement('div');
-      headerBtns.style.display = 'flex'; headerBtns.style.gap = '12px'; /* Gap maior para afastar o config para a esquerda */
+      headerBtns.style.display = 'flex'; headerBtns.style.gap = '8px';
 
       const btnConfig = document.createElement('button');
       btnConfig.className = 'secondary-btn';
-      btnConfig.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px;"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1.08 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1.08z"/></svg>Configuração`;
+      btnConfig.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1.08 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1.08z"/></svg>`;
       btnConfig.title = 'Configurações';
-      Object.assign(btnConfig.style, { fontSize: '12px', padding: '5px 10px', lineHeight: '1', marginRight: '6px', display: 'inline-flex', alignItems: 'center' });
+      Object.assign(btnConfig.style, { padding: '5px 8px', display: 'flex', alignItems: 'center' });
       btnConfig.addEventListener('click', () => this.toggleSettings());
 
       const btnFechar = document.createElement('button');
       btnFechar.className = 'secondary-btn';
       btnFechar.innerHTML = '✕'; btnFechar.title = 'Fechar';
-      Object.assign(btnFechar.style, { fontSize: '14px', padding: '4px 8px', lineHeight: '1' });
+      Object.assign(btnFechar.style, { fontSize: '14px', padding: '4px 10px' });
       btnFechar.addEventListener('click', () => this.fecharPainel());
 
       headerBtns.append(btnConfig, btnFechar);
       header.append(titleWrap, headerBtns);
 
+      // Botão de Atualização (inicialmente escondido)
+      const btnUpdate = document.createElement('button');
+      btnUpdate.className = 'update-btn';
+      btnUpdate.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> ATUALIZAR`;
+      btnUpdate.title = 'Nova atualização disponível no Tampermonkey!';
+      btnUpdate.style.marginLeft = '10px';
+      btnUpdate.addEventListener('click', () => {
+        window.open(this.updateManager.updateUrl, '_blank');
+      });
+      titleWrap.appendChild(btnUpdate);
+
+      // Verificar atualização de forma assíncrona
+      this.updateManager.checkForUpdate().then(hasUpdate => {
+        if (hasUpdate) btnUpdate.style.display = 'inline-flex';
+      });
+
+      const scrollContent = document.createElement('div');
+      scrollContent.className = 'panel-content-scroll';
+
       const divCliente = document.createElement('div');
-      Object.assign(divCliente.style, { marginBottom: '6px', fontSize: '13px' });
-      divCliente.innerHTML = `<span style="color:#8089A0;">Cliente:</span> <span id="${CONFIG.DOM_IDS.NOME_CLIENTE}" style="font-weight:600;color:#2f4050;"></span>`;
+      Object.assign(divCliente.style, { marginBottom: '8px', fontSize: '14px' });
+      divCliente.innerHTML = `<span style="color:#555;">Cliente:</span> <span id="${CONFIG.DOM_IDS.NOME_CLIENTE}" style="font-weight:700;color:#2f4050;"></span>`;
 
       const divTMA = document.createElement('div');
       divTMA.id = CONFIG.DOM_IDS.TMA_DISPLAY;
-      Object.assign(divTMA.style, { marginBottom: '14px', fontSize: '14px', color: '#2f4050', fontWeight: '500' });
+      Object.assign(divTMA.style, { marginBottom: '20px', fontSize: '15px', color: '#2f4050', fontWeight: '500' });
 
       const secCronometro = this.construirSecaoCronometro();
       const secLembretes = this.construirSecaoLembretes();
       const secMensagens = this.construirSecaoMensagens();
 
-      painel.append(header, divCliente, divTMA, document.createElement('hr'),
+      scrollContent.append(divCliente, divTMA, document.createElement('hr'),
         secCronometro, document.createElement('hr'),
         secLembretes, document.createElement('hr'),
         secMensagens
       );
+
+      painel.append(header, scrollContent);
       document.body.appendChild(painel);
 
       this._criarResizeHandle(painel);
@@ -1184,13 +1289,13 @@
         document.head.appendChild(styleEl);
       }
       styleEl.textContent = `
-          #talk-panel,
-          .talk-panel,
-          .talk-commands {
-            width: calc(100% - ${width}px) !important;
-            transition: width 0.15s ease !important;
-          }
-        `;
+              #talk-panel,
+              .talk-panel,
+              .talk-commands {
+                width: calc(100% - ${width}px) !important;
+                transition: width 0.15s ease !important;
+              }
+            `;
     }
 
     _limparModoChat() {
@@ -1363,7 +1468,7 @@
           right: savedX !== null ? 'auto' : '20px',
           zIndex: '999999',
           cursor: 'grab', background: '#fff',
-          borderRadius: '50%', boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+          borderRadius: '0', boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
           border: '1px solid #d4dfe3',
           width: '50px', height: '50px', display: 'flex', alignItems: 'center',
           justifyContent: 'center', transition: 'box-shadow 0.18s, transform 0.18s',
@@ -1652,7 +1757,6 @@
 
       // Limpar clientes que saíram da sidebar foi removido para evitar falsos
       // resgates quando o usuário usa o campo de busca ou troca de aba no PipeRun.
-      // O método _limparDadosAntigos() já limpará registros após 24 horas.
 
       // Verificar alertas globais de TMA
       this.ui.tma.verificarAlertaGlobal();
