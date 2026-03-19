@@ -176,7 +176,7 @@
       for (const cliente in this.atendimentos) {
         const dados = this.atendimentos[cliente];
 
-        // Ignorar alertas globais para clientes que não foram vistos na sidebar 
+        // Ignorar alertas globais para clientes que não foram vistos na sidebar
         // ou chat ativo nos últimos 2 minutos. (Evitar alertas de chats já fechados)
         if (dados.lastSeen && (agora - dados.lastSeen > 120000)) continue;
 
@@ -256,7 +256,7 @@
         prompt += `\n`;
       }
 
-      prompt += `Gere um relato CURTO, DIRETO e OBJETIVO do atendimento, em um único parágrafo, sem o uso de markdown, tópicos ou títulos. O relato deve ir direto ao ponto e ser técnico com as alterações ou ações do técnico/atendente.
+      prompt += `Gere um relato CURTO, DIRETO, TÉCNICO e OBJETIVO do atendimento, em um único parágrafo, sem o uso de markdown, tópicos ou títulos. O relato deve ir direto ao ponto e ser MUITO técnico com as alterações ou ações do técnico/atendente.
       MUITO IMPORTANTE: Escreva o relato na **PRIMEIRA PESSOA DO SINGULAR ("eu fiz", "verifiquei", "orientei")**, pois este texto será copiado e colado pelo atendente (você) no sistema da empresa. Nunca use terceira pessoa como "o atendente fez".
       não precisa falar o nome do cliente ou citar o nome dele(a), preferivelmente comece com gênero correto "O/A cliente...". Exemplo do formato exato que eu desejo: "Cliente solicitou troca de senha, fiz a alteração da senha dela e informei sobre ser Case Sensitive, ela entendeu e confirmou. Posteriormente disse que iria testar em casa, e o atendimento foi encerrado."
       Escreva de forma fluida. Se o atendente forneceu "Anotações Vitais", use-as como o FATO PRINCIPAL da sua resposta; o histórico de chat serve APENAS como contexto secundário.`;
