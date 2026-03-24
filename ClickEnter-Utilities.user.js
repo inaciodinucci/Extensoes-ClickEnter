@@ -266,8 +266,17 @@
       Escreva de forma fluida. Se o atendente forneceu "Anotações Vitais", use-as como o FATO PRINCIPAL da sua resposta; o histórico de chat serve APENAS como contexto secundário.
       INSTRUÇÃO ADICIONAL: JAMAIS diga que "o atendimento foi transferido", "passei para um humano", "transferi para o suporte" ou seja excessivamente literal sobre os botões/sistemas do chat. Concentre-se no RELATO TÉCNICO do problema e da resolução aplicados.`;
 
-      if (provider === 'gemini') return this.chamarGemini(prompt, apiKey);
-      return this.chamarChatGPT(prompt, apiKey);
+      // Separa o formato provedor:modelo
+      const [provider, ...modelParts] = providerModel.split(':');
+      const model = modelParts.join(':');
+
+      switch (provider) {
+        case 'gemini': return this.chamarGemini(prompt, apiKey);
+        case 'groq': return this.chamarGroq(prompt, apiKey, model);
+        case 'openrouter': return this.chamarOpenRouter(prompt, apiKey, model);
+        case 'chatgpt': return this.chamarChatGPT(prompt, apiKey);
+        default: return this.chamarGemini(prompt, apiKey);
+      }
     }
 
     _extrairHistoricoChat() {
