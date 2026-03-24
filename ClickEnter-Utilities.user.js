@@ -1,16 +1,18 @@
 // ==UserScript==
 // @name         ClickEnter Utilities
 // @namespace    http://tampermonkey.net/
-// @version      0.0.3
+// @version      0.0.4
 // @description  Utilitários para melhorar a produtividade de atendimento no PipeRun
 // @author       inaciodinucci
 // @match        https://synsuite.clickenter.com.br/*
 // @match        https://clickenter.cxm.pipe.run/agent*
 // @grant        GM_xmlhttpRequest
-// @downloadURL  https://raw.githubusercontent.com/inaciodinucci/Extensoes-ClickEnter/main/ClickEnter-Utilities.user.js
-// @updateURL    https://raw.githubusercontent.com/inaciodinucci/Extensoes-ClickEnter/main/ClickEnter-Utilities.user.js
+// @downloadURL  https://raw.githubusercontent.com/inaciodinucci/Userscript-PipeRun-ClickEnter/main/ClickEnter-Utilities.user.js
+// @updateURL    https://raw.githubusercontent.com/inaciodinucci/Userscript-PipeRun-ClickEnter/main/ClickEnter-Utilities.user.js
 // @connect      generativelanguage.googleapis.com
 // @connect      api.openai.com
+// @connect      api.groq.com
+// @connect      openrouter.ai
 // ==/UserScript==
 
 (function () {
@@ -25,6 +27,8 @@
       AI_PROVIDER: 'clickenter_ai_provider',
       API_KEY_OPENAI: 'clickenter_apikey_openai',
       API_KEY_GEMINI: 'clickenter_apikey_gemini',
+      API_KEY_GROQ: 'clickenter_apikey_groq',
+      API_KEY_OPENROUTER: 'clickenter_apikey_openrouter',
       TMA_DATA: 'clickenter_tma_data',
       TMA_ALERTA_MIN: 'clickenter_tma_alerta_min',
       TMA_CRITICO_MIN: 'clickenter_tma_critico_min',
@@ -176,7 +180,7 @@
       for (const cliente in this.atendimentos) {
         const dados = this.atendimentos[cliente];
 
-        // Ignorar alertas globais para clientes que não foram vistos na sidebar 
+        // Ignorar alertas globais para clientes que não foram vistos na sidebar
         // ou chat ativo nos últimos 2 minutos. (Evitar alertas de chats já fechados)
         if (dados.lastSeen && (agora - dados.lastSeen > 120000)) continue;
 
@@ -232,7 +236,7 @@
   }
 
   class AIModule {
-    async gerarRelato(lembretes, provider, apiKey) {
+    async gerarRelato(lembretes, providerModel, apiKey) {
       if (!apiKey) throw new Error('API Key não configurada. Acesse as configurações (⚙).');
 
       const historicoChat = this._extrairHistoricoChat();
@@ -284,6 +288,16 @@
 
         let texto = textEl.innerText.trim();
 
+        // Remove pipebot e mensagens do sistema de encaminhamento/transferência (feedback do usuário)
+        if (autor.toLowerCase().includes('pipebot')) return;
+        const lowerTexto = texto.toLowerCase();
+        if (lowerTexto.includes('atendimento transferido') ||
+          lowerTexto.includes('encaminhado para') ||
+          lowerTexto.includes('transferência de atendimento') ||
+          lowerTexto.includes('transferido(a) para')) {
+          return;
+        }
+
         const botoes = el.querySelectorAll('.talk-buttons-content span');
         if (botoes.length > 0) {
           const opcoes = Array.from(botoes).map(b => `[${b.textContent}]`).join(' ');
@@ -317,7 +331,13 @@
                 reject(new Error(`Gemini API Http ${res.status}: ${res.responseText}`));
               }
             },
-            onerror: (err) => reject(new Error('GM_xmlhttpRequest error (Gemini): ' + JSON.stringify(err)))
+            onerror: (err) => {
+              const status = err.status || 'Rede';
+              const text = err.statusText || 'Conexão rejeitada';
+              reject(new Error(`Falha (Gemini) [${status}]: ${text}. O serviço pode estar fora do ar.`));
+            },
+            timeout: 60000,
+            ontimeout: () => reject(new Error('A requisição para o Gemini expirou (Timeout de 60s). Tente novamente.'))
           });
         } else {
           fetch(url, {
@@ -353,7 +373,13 @@
                 reject(new Error(`ChatGPT API Http ${res.status}: ${res.responseText}`));
               }
             },
-            onerror: (err) => reject(new Error('GM_xmlhttpRequest error (ChatGPT): ' + JSON.stringify(err)))
+            onerror: (err) => {
+              const status = err.status || 'Rede';
+              const text = err.statusText || 'Conexão rejeitada';
+              reject(new Error(`Falha (ChatGPT) [${status}]: ${text}. O serviço pode estar fora do ar.`));
+            },
+            timeout: 60000,
+            ontimeout: () => reject(new Error('A requisição para o ChatGPT expirou (Timeout de 60s). Tente novamente.'))
           });
         } else {
           fetch(url, {
@@ -364,6 +390,101 @@
             const data = await res.json();
             resolve(data.choices?.[0]?.message?.content || 'Sem resposta da API.');
           }).catch(err => reject(new Error('Fetch error (ChatGPT): ' + err.message)));
+        }
+      });
+    }
+
+    async chamarGroq(prompt, apiKey, model) {
+      const url = 'https://api.groq.com/openai/v1/chat/completions';
+      const body = JSON.stringify({ model: model, messages: [{ role: 'user', content: prompt }], max_tokens: 1024 });
+
+      return new Promise((resolve, reject) => {
+        if (typeof GM_xmlhttpRequest !== 'undefined') {
+          GM_xmlhttpRequest({
+            method: 'POST',
+            url: url,
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+            data: body,
+            onload: (res) => {
+              if (res.status >= 200 && res.status < 300) {
+                try {
+                  const data = JSON.parse(res.responseText);
+                  resolve(data.choices?.[0]?.message?.content || 'Sem resposta da API.');
+                } catch (e) { reject(new Error('Erro ao fazer parse da resposta do Groq.')); }
+              } else {
+                reject(new Error(`Groq API Http ${res.status}: ${res.responseText}`));
+              }
+            },
+            onerror: (err) => {
+              const status = err.status || 'Rede';
+              const text = err.statusText || 'Conexão rejeitada';
+              reject(new Error(`Falha (Groq) [${status}]: ${text}. O serviço pode estar fora do ar.`));
+            },
+            timeout: 60000,
+            ontimeout: () => reject(new Error('A requisição para o Groq expirou (Timeout de 60s). Tente novamente.'))
+          });
+        } else {
+          fetch(url, {
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+            body: body
+          }).then(async res => {
+            if (!res.ok) { const e = await res.text(); throw new Error(`Groq API erro Http ${res.status}: ${e}`); }
+            const data = await res.json();
+            resolve(data.choices?.[0]?.message?.content || 'Sem resposta da API.');
+          }).catch(err => reject(new Error('Fetch error (Groq): ' + err.message)));
+        }
+      });
+    }
+
+    async chamarOpenRouter(prompt, apiKey, model) {
+      const url = 'https://openrouter.ai/api/v1/chat/completions';
+      const body = JSON.stringify({ model: model, messages: [{ role: 'user', content: prompt }], max_tokens: 1024 });
+
+      return new Promise((resolve, reject) => {
+        if (typeof GM_xmlhttpRequest !== 'undefined') {
+          GM_xmlhttpRequest({
+            method: 'POST',
+            url: url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiKey}`,
+              'HTTP-Referer': 'https://clickenter.cxm.pipe.run',
+              'X-Title': 'ClickEnter Utilities'
+            },
+            data: body,
+            onload: (res) => {
+              if (res.status >= 200 && res.status < 300) {
+                try {
+                  const data = JSON.parse(res.responseText);
+                  resolve(data.choices?.[0]?.message?.content || 'Sem resposta da API.');
+                } catch (e) { reject(new Error('Erro ao fazer parse da resposta do OpenRouter.')); }
+              } else {
+                reject(new Error(`OpenRouter API Http ${res.status}: ${res.responseText}`));
+              }
+            },
+            onerror: (err) => {
+              const status = err.status || 'Rede';
+              const text = err.statusText || 'Conexão rejeitada';
+              reject(new Error(`Falha (OpenRouter) [${status}]: ${text}. O serviço pode estar fora do ar.`));
+            },
+            timeout: 60000,
+            ontimeout: () => reject(new Error('A requisição para o OpenRouter expirou (Timeout de 60s). Tente novamente.'))
+          });
+        } else {
+          fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiKey}`,
+              'HTTP-Referer': 'https://clickenter.cxm.pipe.run',
+              'X-Title': 'ClickEnter Utilities'
+            },
+            body: body
+          }).then(async res => {
+            if (!res.ok) { const e = await res.text(); throw new Error(`OpenRouter API erro Http ${res.status}: ${e}`); }
+            const data = await res.json();
+            resolve(data.choices?.[0]?.message?.content || 'Sem resposta da API.');
+          }).catch(err => reject(new Error('Fetch error (OpenRouter): ' + err.message)));
         }
       });
     }
@@ -451,13 +572,13 @@
       painel.id = P;
       Object.assign(painel.style, {
         position: 'fixed', top: '0', right: `-${savedWidth}px`, width: `${savedWidth}px`, height: '100%',
-        background: '#ffffff', /* Pure white background as requested */
+        background: '#ffffff',
         borderLeft: '1px solid rgba(0,0,0,0.1)',
         boxShadow: '-4px 0 24px rgba(0,0,0,0.2)',
-        zIndex: '99999',
+        zIndex: '0',
         transition: 'right 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)',
-        padding: '0', /* Zeroing padding to let header/content handle it */
-        overflow: 'hidden', /* For internal scrolling */
+        padding: '0',
+        overflow: 'hidden',
         display: 'flex', flexDirection: 'column',
         fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif', color: '#262626'
       });
@@ -468,7 +589,7 @@
               @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
               #${P} * { box-sizing:border-box; }
               #${P} button {
-                background:#1D6CAE; color:#fff; /* Vibrant blue instead of navy */
+                background:#1D6CAE; color:#fff;
                 border:none; padding:7px 14px; border-radius:0; cursor:pointer;
                 font-weight:600; font-size:13px; letter-spacing:0.2px;
                 transition:all 0.2s; box-shadow:0 1px 3px rgba(0,0,0,0.15);
@@ -570,7 +691,7 @@
               }
 
               #${P} .settings-overlay {
-                position:absolute; inset:0; background:rgba(255,255,255,0.95);
+                position:absolute; inset:0; background:#ffffff;
                 z-index:10; padding:28px 22px; overflow:visible; overflow-y:auto;
                 animation:ceFadeIn 0.2s ease;
               }
@@ -589,7 +710,7 @@
               }
               #${CONFIG.DOM_IDS.RESIZE_HANDLE} {
                 position:fixed; top:0; width:6px; height:100%; cursor:col-resize;
-                z-index:100000; background:transparent;
+                z-index:1; background:transparent;
                 transition: background 0.15s;
               }
               #${CONFIG.DOM_IDS.RESIZE_HANDLE}:hover,
@@ -652,7 +773,6 @@
       headerBtns.append(btnConfig, btnFechar);
       header.append(titleWrap, headerBtns);
 
-      // Botão de Atualização (inicialmente escondido)
       const btnUpdate = document.createElement('button');
       btnUpdate.className = 'update-btn';
       btnUpdate.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> ATUALIZAR`;
@@ -663,7 +783,6 @@
       });
       titleWrap.appendChild(btnUpdate);
 
-      // Verificar atualização de forma assíncrona
       this.updateManager.checkForUpdate().then(hasUpdate => {
         if (hasUpdate) btnUpdate.style.display = 'inline-flex';
       });
@@ -771,29 +890,69 @@
 
       const lbl1 = document.createElement('div');
       Object.assign(lbl1.style, { fontSize: '12px', color: '#8089A0', marginBottom: '4px' });
-      lbl1.textContent = 'Provedor';
+      lbl1.textContent = 'Modelo de I.A.';
       const sel = document.createElement('select');
-      sel.style.width = '100%'; sel.style.marginBottom = '14px';
-      sel.innerHTML = '<option value="gemini">Gemini 3 Flash Preview (Gratuito)</option><option value="chatgpt">ChatGPT (OpenAI)</option>';
-      sel.value = this.storage.obter(CONFIG.KEYS.AI_PROVIDER, 'gemini');
+      sel.innerHTML = `
+        <optgroup label="Gemini (Gratuito)">
+          <option value="gemini:gemini-3.1-flash-lite-preview">Gemini 3.1 Flash Lite Preview</option>
+        </optgroup>
+        <optgroup label="Groq (Gratuito — 14.400 req/dia)">
+          <option value="groq:llama-3.3-70b-versatile">Llama 3.3 70B Versatile</option>
+          <option value="groq:llama-3.1-8b-instant">Llama 3.1 8B Instant</option>
+          <option value="groq:qwen-2.5-32b">Qwen 2.5 32B</option>
+        </optgroup>
+        <optgroup label="OpenRouter (Gratuito — Limites Menores)">
+          <option value="openrouter:openrouter/free">Router Inteligente (Melhor Modelo Livre)</option>
+          <option value="openrouter:meta-llama/llama-3.2-3b-instruct:free">Llama 3.2 3B Instruct</option>
+          <option value="openrouter:qwen/qwen-2.5-coder-32b-instruct:free">Qwen 2.5 Coder 32B</option>
+        </optgroup>
+        <optgroup label="OpenAI (Pago)">
+          <option value="chatgpt:gpt-3.5-turbo">GPT-3.5 Turbo</option>
+        </optgroup>
+      `;
+      const savedProvider = this.storage.obter(CONFIG.KEYS.AI_PROVIDER, 'gemini:gemini-3.1-flash-lite-preview');
+      sel.value = savedProvider;
+      // Fallback caso valor salvo não corresponda a nenhuma opção
+      if (sel.selectedIndex === -1) sel.value = 'gemini:gemini-3.1-flash-lite-preview';
 
-      const lbl2 = document.createElement('div');
-      Object.assign(lbl2.style, { fontSize: '12px', color: '#8089A0', marginBottom: '4px' });
-      lbl2.textContent = 'API Key - Gemini';
-      const inputGemini = document.createElement('input');
-      inputGemini.type = 'password'; inputGemini.style.width = '100%'; inputGemini.style.marginBottom = '14px';
-      inputGemini.placeholder = 'Cole sua API Key do Gemini...';
-      inputGemini.value = this.storage.obter(CONFIG.KEYS.API_KEY_GEMINI, '');
+      // Campo de API Key dinâmico
+      const apiKeyContainer = document.createElement('div');
+      apiKeyContainer.id = 'ce-apikey-container';
 
-      const lbl3 = document.createElement('div');
-      Object.assign(lbl3.style, { fontSize: '12px', color: '#8089A0', marginBottom: '4px' });
-      lbl3.textContent = 'API Key - OpenAI';
-      const inputOpenAI = document.createElement('input');
-      inputOpenAI.type = 'password'; inputOpenAI.style.width = '100%'; inputOpenAI.style.marginBottom = '6px';
-      inputOpenAI.placeholder = 'Cole sua API Key do OpenAI...';
-      inputOpenAI.value = this.storage.obter(CONFIG.KEYS.API_KEY_OPENAI, '');
+      const apiKeyConfigs = {
+        gemini: { label: 'API Key - Gemini', placeholder: 'Cole sua API Key do Gemini...', storageKey: CONFIG.KEYS.API_KEY_GEMINI, link: 'https://aistudio.google.com/apikey' },
+        groq: { label: 'API Key - Groq', placeholder: 'Cole sua API Key do Groq (groq.com)...', storageKey: CONFIG.KEYS.API_KEY_GROQ, link: 'https://console.groq.com/keys' },
+        openrouter: { label: 'API Key - OpenRouter', placeholder: 'Cole sua API Key do OpenRouter...', storageKey: CONFIG.KEYS.API_KEY_OPENROUTER, link: 'https://openrouter.ai/keys' },
+        chatgpt: { label: 'API Key - OpenAI', placeholder: 'Cole sua API Key do OpenAI...', storageKey: CONFIG.KEYS.API_KEY_OPENAI, link: 'https://platform.openai.com/api-keys' }
+      };
 
-      cardIA.append(cardIATitle, lbl1, sel, lbl2, inputGemini, lbl3, inputOpenAI);
+      // Extrai o prefixo do provedor a partir do valor
+      const getProviderFromValue = (val) => val.split(':')[0];
+
+      const renderApiKeyField = (providerKey) => {
+        apiKeyContainer.innerHTML = '';
+        const config = apiKeyConfigs[providerKey];
+        if (!config) return;
+        const lbl = document.createElement('div');
+        Object.assign(lbl.style, { fontSize: '12px', color: '#8089A0', marginBottom: '4px' });
+        lbl.textContent = config.label;
+        const input = document.createElement('input');
+        input.type = 'password'; input.id = 'ce-current-apikey-input';
+        input.style.width = '100%'; input.style.marginBottom = '6px';
+        input.placeholder = config.placeholder;
+        input.value = this.storage.obter(config.storageKey, '');
+        const infoText = document.createElement('div');
+        Object.assign(infoText.style, { fontSize: '11px', color: '#8089A0', marginBottom: '6px' });
+        infoText.innerHTML = '<a href="' + config.link + '" target="_blank" style="color:#1D6CAE;text-decoration:none;">Obter chave gratuita \u2192</a>';
+        apiKeyContainer.append(lbl, input, infoText);
+      };
+
+      // Renderização inicial
+      renderApiKeyField(getProviderFromValue(sel.value));
+      // Ao mudar, re-renderizar o campo da API key
+      sel.addEventListener('change', () => { renderApiKeyField(getProviderFromValue(sel.value)); });
+
+      cardIA.append(cardIATitle, lbl1, sel, apiKeyContainer);
 
       const cardTMA = document.createElement('div');
       cardTMA.className = 'section-card';
@@ -891,8 +1050,11 @@
       Object.assign(btnSave.style, { width: '100%', marginTop: '8px', padding: '10px', fontSize: '14px' });
       btnSave.addEventListener('click', () => {
         this.storage.salvar(CONFIG.KEYS.AI_PROVIDER, sel.value);
-        this.storage.salvar(CONFIG.KEYS.API_KEY_GEMINI, inputGemini.value);
-        this.storage.salvar(CONFIG.KEYS.API_KEY_OPENAI, inputOpenAI.value);
+        const currentProvider = getProviderFromValue(sel.value);
+        const currentInput = document.getElementById('ce-current-apikey-input');
+        if (currentInput && apiKeyConfigs[currentProvider]) {
+          this.storage.salvar(apiKeyConfigs[currentProvider].storageKey, currentInput.value);
+        }
         const alertaVal = parseInt(inputAlerta.value, 10);
         const criticoVal = parseInt(inputCritico.value, 10);
         if (!isNaN(alertaVal) && alertaVal > 0) this.storage.salvar(CONFIG.KEYS.TMA_ALERTA_MIN, alertaVal);
@@ -901,7 +1063,6 @@
         const newMode = selMode.value;
         this.storage.salvar(CONFIG.KEYS.DISPLAY_MODE, newMode);
         overlay.remove();
-        // Se mudou o modo, reabrir no novo modo
         if (oldMode !== newMode) {
           this.fecharPainel();
           setTimeout(() => this.abrirPainel(), 450);
@@ -1018,13 +1179,19 @@
       btnGerar.addEventListener('click', async () => {
         const key = `${CONFIG.KEYS.LEMBRETES}_${this.clienteAtual}`;
         const lembretes = this.storage.obter(key);
-        const provider = this.storage.obter(CONFIG.KEYS.AI_PROVIDER, 'gemini');
-        const apiKey = provider === 'gemini'
-          ? this.storage.obter(CONFIG.KEYS.API_KEY_GEMINI, '')
-          : this.storage.obter(CONFIG.KEYS.API_KEY_OPENAI, '');
+
+        const providerModel = this.storage.obter(CONFIG.KEYS.AI_PROVIDER, 'gemini:gemini-3.1-flash-lite-preview');
+        const provider = providerModel.split(':')[0];
+
+        let apiKey = '';
+        if (provider === 'gemini') apiKey = this.storage.obter(CONFIG.KEYS.API_KEY_GEMINI, '');
+        else if (provider === 'groq') apiKey = this.storage.obter(CONFIG.KEYS.API_KEY_GROQ, '');
+        else if (provider === 'openrouter') apiKey = this.storage.obter(CONFIG.KEYS.API_KEY_OPENROUTER, '');
+        else if (provider === 'chatgpt') apiKey = this.storage.obter(CONFIG.KEYS.API_KEY_OPENAI, '');
+
         btnGerar.disabled = true; btnGerar.textContent = 'Gerando...';
         try {
-          const relato = await this.ai.gerarRelato(lembretes, provider, apiKey);
+          const relato = await this.ai.gerarRelato(lembretes, providerModel, apiKey);
           aiOutput.value = relato;
           this.storage.salvar(`clickenter_ai_output_${this.clienteAtual}`, relato);
           lastApiLog = 'Sucesso na última chamada.';
@@ -1088,8 +1255,12 @@
       lista.id = CONFIG.DOM_IDS.LISTA_MENSAGENS;
       lista.style.marginTop = '8px';
 
+      const helpText = document.createElement('div');
+      helpText.style.cssText = 'font-size:11px;color:#aaa;margin-bottom:8px;';
+      helpText.textContent = 'Arraste para reordenar. Clique no texto para copiar.';
+
       divInput.append(textarea, btnSalvar);
-      wrapper.append(divInput, lista);
+      wrapper.append(divInput, helpText, lista);
       return wrapper;
     }
 
@@ -1127,29 +1298,66 @@
       const ul = document.getElementById(CONFIG.DOM_IDS.LISTA_MENSAGENS);
       if (!ul) return;
       ul.innerHTML = '';
+      ul.style.listStyle = 'none';
+      ul.style.padding = '0';
 
       const mensagens = this.storage.obter(CONFIG.KEYS.MENSAGENS);
       mensagens.forEach((msg, i) => {
         const li = document.createElement('li');
-        Object.assign(li.style, { marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' });
+        li.draggable = true;
+        li.dataset.index = i;
+        Object.assign(li.style, {
+          marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          cursor: 'grab', padding: '8px 10px', background: '#f9f9f9', border: '1px solid #eee',
+          userSelect: 'none', transition: 'opacity 0.2s, background 0.2s'
+        });
+
+        const dragHandle = document.createElement('span');
+        dragHandle.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/></svg>';
+        dragHandle.style.marginRight = '10px';
+        dragHandle.style.cursor = 'grab';
+        dragHandle.title = 'Arrastar para reordenar';
+        Object.assign(dragHandle.style, { flexShrink: '0', display: 'flex', alignItems: 'center' });
 
         const txtResumo = msg.length > 30 ? msg.substring(0, 30) + '...' : msg;
 
         const spanCopy = document.createElement('span');
-        spanCopy.textContent = `[Copiar] ${txtResumo}`;
-        spanCopy.title = "Clique para copiar";
-        Object.assign(spanCopy.style, { cursor: 'pointer', color: '#428BCA' });
+        spanCopy.textContent = txtResumo;
+        spanCopy.title = msg + '\n\nClique para copiar';
+        Object.assign(spanCopy.style, { cursor: 'pointer', color: '#428BCA', flex: '1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
 
         spanCopy.addEventListener('click', () => {
           navigator.clipboard.writeText(msg)
-            .then(() => { spanCopy.textContent = '[Copiado]'; setTimeout(() => spanCopy.textContent = `[Copiar] ${txtResumo}`, 1500); })
+            .then(() => {
+              const original = spanCopy.textContent;
+              spanCopy.textContent = 'Copiado!';
+              spanCopy.style.color = '#27ae60';
+              setTimeout(() => { spanCopy.textContent = original; spanCopy.style.color = '#428BCA'; }, 1500);
+            })
             .catch(err => console.error('Erro ao copiar', err));
         });
 
+        const btnEdit = document.createElement('button');
+        btnEdit.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+        btnEdit.title = 'Editar mensagem';
+        Object.assign(btnEdit.style, { background: 'transparent', border: 'none', cursor: 'pointer', color: '#888', padding: '4px 6px', display: 'flex', alignItems: 'center', marginLeft: '8px' });
+        btnEdit.addEventListener('mouseenter', () => { btnEdit.style.color = '#1D6CAE'; });
+        btnEdit.addEventListener('mouseleave', () => { btnEdit.style.color = '#888'; });
+        btnEdit.addEventListener('click', () => {
+          const novaMsg = prompt('Editar mensagem:', msg);
+          if (novaMsg !== null && novaMsg.trim() !== '') {
+            const m = this.storage.obter(CONFIG.KEYS.MENSAGENS);
+            m[i] = novaMsg.trim();
+            this.storage.salvar(CONFIG.KEYS.MENSAGENS, m);
+            this.renderizarListaMensagens();
+          }
+        });
+
         const btnRemove = document.createElement('button');
-        btnRemove.innerHTML = '&times;';
+        btnRemove.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+        btnRemove.title = 'Remover';
         btnRemove.className = 'danger-btn';
-        Object.assign(btnRemove.style, { marginLeft: '12px', fontSize: '15px' });
+        Object.assign(btnRemove.style, { marginLeft: '8px', display: 'flex', alignItems: 'center', padding: '4px 6px' });
         btnRemove.addEventListener('click', () => {
           const m = this.storage.obter(CONFIG.KEYS.MENSAGENS);
           m.splice(i, 1);
@@ -1157,7 +1365,41 @@
           this.renderizarListaMensagens();
         });
 
-        li.append(spanCopy, btnRemove);
+        li.addEventListener('dragstart', (e) => {
+          e.dataTransfer.setData('text/plain', i.toString());
+          li.style.opacity = '0.5';
+          li.style.background = '#e8f4ff';
+        });
+
+        li.addEventListener('dragend', () => {
+          li.style.opacity = '1';
+          li.style.background = '#f9f9f9';
+        });
+
+        li.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          li.style.background = '#e8f4ff';
+        });
+
+        li.addEventListener('dragleave', () => {
+          li.style.background = '#f9f9f9';
+        });
+
+        li.addEventListener('drop', (e) => {
+          e.preventDefault();
+          li.style.background = '#f9f9f9';
+          const fromIndex = parseInt(e.dataTransfer.getData('text/plain'), 10);
+          const toIndex = parseInt(li.dataset.index, 10);
+          if (fromIndex !== toIndex) {
+            const m = this.storage.obter(CONFIG.KEYS.MENSAGENS);
+            const [item] = m.splice(fromIndex, 1);
+            m.splice(toIndex, 0, item);
+            this.storage.salvar(CONFIG.KEYS.MENSAGENS, m);
+            this.renderizarListaMensagens();
+          }
+        });
+
+        li.append(dragHandle, spanCopy, btnEdit, btnRemove);
         ul.appendChild(li);
       });
     }
@@ -1166,7 +1408,6 @@
       const spanStatus = document.getElementById(CONFIG.DOM_IDS.CRONOMETRO_STATUS);
       if (!spanStatus) return;
 
-      // Solicitar permissão de notificação nativa ao iniciar, se ainda não tiver
       if (window.Notification && Notification.permission !== 'granted') {
         Notification.requestPermission();
       }
@@ -1190,11 +1431,9 @@
 
           const msgAviso = `O cronometro configurado para ${clienteComplete} encerrou.`;
 
-          // Som de Notificação
           const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
           audio.play().catch(e => console.log('Áudio automático bloqueado pelo navegador', e));
 
-          // Notificação de Janela Nativa
           if (window.Notification && Notification.permission === 'granted') {
             new Notification('Cronômetro Esgotado!', {
               body: msgAviso,
@@ -1263,7 +1502,6 @@
         return;
       }
 
-      // Calcular posição baseada unicamente no talk-panel para não cobrir o header
       const chatRect = talkPanel.getBoundingClientRect();
 
       painel.style.position = 'fixed';
@@ -1271,8 +1509,6 @@
       painel.style.right = '0px';
       painel.style.width = width + 'px';
       painel.style.height = `calc(100vh - ${chatRect.top}px)`;
-      // Ajuste de zIndex flexível: bem baixo para garantir que absolutely NOTHING
-      // do topo do chat (dropdowns, tooltips, modais) fique atrás do painel.
       painel.style.zIndex = '10';
 
       this._aplicarCSSModoChat(width);
@@ -1420,7 +1656,6 @@
     }
 
     _injetarNaNavbar() {
-      // Procura o local onde estava sendo injetado originalmente (user-info) da barra superior direita
       const userInfo = document.querySelector('.navbar-buttons .user-info')
         || document.querySelector('.user-info')
         || document.querySelector('.navbar-header .user-info')
@@ -1509,7 +1744,6 @@
             }
             let x = ev.clientX - offsetX;
             let y = ev.clientY - offsetY;
-            // Limitar à viewport
             x = Math.max(0, Math.min(x, window.innerWidth - divWrapper.offsetWidth));
             y = Math.max(0, Math.min(y, window.innerHeight - divWrapper.offsetHeight));
             divWrapper.style.left = x + 'px';
@@ -1523,7 +1757,6 @@
             divWrapper.style.transition = 'box-shadow 0.18s, transform 0.18s';
 
             if (hasDragged) {
-              // Salvar a nova posição
               const rect = divWrapper.getBoundingClientRect();
               this.storage.salvar(CONFIG.KEYS.ICON_POS, JSON.stringify({ x: rect.left, y: rect.top }));
             }
@@ -1536,7 +1769,6 @@
           document.addEventListener('mouseup', onMouseUp);
         });
 
-        // Separar click handler para não disparar quando houve drag
         divWrapper.addEventListener('click', (e) => {
           e.stopPropagation();
           e.preventDefault();
@@ -1582,7 +1814,6 @@
       const timer = this.ui.timer;
       const activeClients = new Set();
 
-      // Coletar clientes da sidebar
       talkButtons.forEach(btn => {
         const nameEl = btn.querySelector('.talk-customer-name');
         if (nameEl) {
@@ -1591,7 +1822,6 @@
         }
       });
 
-      // Coletar cliente do chat aberto (por segurança)
       const talkPanel = document.getElementById('talk-panel');
       if (talkPanel) {
         const nomeEl = document.querySelector('.talk-customer-name-header');
@@ -1601,7 +1831,6 @@
         }
       }
 
-      // Limpar cronômetros de clientes que foram encerrados
       for (const cliente in timer.timers) {
         if (!activeClients.has(cliente)) {
           timer.parar(cliente);
@@ -1619,12 +1848,36 @@
         const nameEl = btn.querySelector('.talk-customer-name');
         if (!nameEl) return;
         const clientName = nameEl.textContent.trim();
-        const pullLeft = btn.querySelector('.pull-left.align-left'); // Assuming this is the correct container
+        const pullLeft = btn.querySelector('.pull-left.align-left');
 
-        // Ensure relative positioning on the button so absolute children (avatar icons) map correctly
         if (btn.style.position !== 'relative') btn.style.position = 'relative';
 
         let alertIcon = btn.querySelector('.ce-alert-icon');
+
+        // --- TMA: Borda animada rotativa via overlay ---
+        if (this.ui.tma) {
+          const statusTMA = this.ui.tma.obterStatus(clientName);
+          let overlay = btn.querySelector('.ce-tma-border-overlay');
+
+          if (statusTMA.critico || statusTMA.alertar) {
+            if (!overlay) {
+              overlay = document.createElement('div');
+              overlay.className = 'ce-tma-border-overlay';
+              const spinner = document.createElement('div');
+              spinner.className = 'ce-tma-border-spinner';
+              overlay.appendChild(spinner);
+              btn.appendChild(overlay);
+            }
+            const spinner = overlay.querySelector('.ce-tma-border-spinner');
+            spinner.classList.remove('warning', 'critical');
+            spinner.classList.add(statusTMA.critico ? 'critical' : 'warning');
+
+            btn.style.borderLeft = statusTMA.critico ? '4px solid #d50000' : '4px solid #faa52eff';
+          } else {
+            if (overlay) overlay.remove();
+            btn.style.borderLeft = '';
+          }
+        }
 
         // Lógica do Timer Ativo
         if (timer.timers[clientName]) {
@@ -1634,7 +1887,7 @@
           if (!alertIcon) {
             alertIcon = document.createElement('div');
             alertIcon.className = 'ce-alert-icon';
-            alertIcon.textContent = '⏱️'; // Relógio para indicar timer ativo (usado emoji isolado por ser ícone flutuante)
+            alertIcon.textContent = '⏱️'; // Relógio para indicar timer ativo
             alertIcon.style.fontSize = '12px';
             btn.appendChild(alertIcon);
           } else {
@@ -1697,32 +1950,6 @@
           let badgeLeft = pullLeft.querySelector('.ce-timer-active');
           if (badgeLeft) badgeLeft.remove();
         }
-
-        // --- TMA: Borda animada rotativa via overlay (sem alterar layout) ---
-        if (this.ui.tma) {
-          const statusTMA = this.ui.tma.obterStatus(clientName);
-          let overlay = btn.querySelector('.ce-tma-border-overlay');
-
-          if (statusTMA.critico || statusTMA.alertar) {
-            if (!overlay) {
-              overlay = document.createElement('div');
-              overlay.className = 'ce-tma-border-overlay';
-              const spinner = document.createElement('div');
-              spinner.className = 'ce-tma-border-spinner';
-              overlay.appendChild(spinner);
-              btn.appendChild(overlay);
-            }
-            const spinner = overlay.querySelector('.ce-tma-border-spinner');
-            spinner.classList.remove('warning', 'critical');
-            spinner.classList.add(statusTMA.critico ? 'critical' : 'warning');
-
-            // Adicionar também a borda esquerda (simulando ce-timer-completed-button / channel-active)
-            btn.style.borderLeft = statusTMA.critico ? '4px solid #d50000' : '4px solid #faa52eff';
-          } else {
-            if (overlay) overlay.remove();
-            btn.style.borderLeft = ''; // Reset
-          }
-        }
       });
     }
 
@@ -1761,9 +1988,6 @@
           }
         }
       }
-
-      // Limpar clientes que saíram da sidebar foi removido para evitar falsos
-      // resgates quando o usuário usa o campo de busca ou troca de aba no PipeRun.
 
       // Verificar alertas globais de TMA
       this.ui.tma.verificarAlertaGlobal();
