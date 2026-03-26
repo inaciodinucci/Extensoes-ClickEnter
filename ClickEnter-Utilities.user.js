@@ -13,6 +13,7 @@
 // @connect      api.openai.com
 // @connect      api.groq.com
 // @connect      openrouter.ai
+// @connect      clickenter.cxm.pipe.run
 // ==/UserScript==
 
 (function () {
@@ -34,7 +35,8 @@
       TMA_CRITICO_MIN: 'clickenter_tma_critico_min',
       DISPLAY_MODE: 'clickenter_display_mode',
       PANEL_WIDTH: 'clickenter_panel_width',
-      ICON_POS: 'clickenter_icon_pos'
+      ICON_POS: 'clickenter_icon_pos',
+      TRANSCRICOES: 'clickenter_transcricoes'
     },
     DOM_IDS: {
       PAINEL: 'painel-extensao-atendente',
@@ -298,6 +300,14 @@
 
         let texto = textEl.innerText.trim();
 
+        const transcriptionEl = el.querySelector('.ce-transcription-text');
+        if (transcriptionEl) {
+          const transcricao = transcriptionEl.textContent.trim();
+          if (transcricao) {
+            texto = texto ? `${texto}\n[Áudio transcrito]: ${transcricao}` : `[Áudio transcrito]: ${transcricao}`;
+          }
+        }
+
         // Remove pipebot e mensagens do sistema de encaminhamento/transferência (feedback do usuário)
         if (autor.toLowerCase().includes('pipebot')) return;
         const lowerTexto = texto.toLowerCase();
@@ -496,6 +506,58 @@
             resolve(data.choices?.[0]?.message?.content || 'Sem resposta da API.');
           }).catch(err => reject(new Error('Fetch error (OpenRouter): ' + err.message)));
         }
+      });
+    }
+
+    // Transcreve áudio usando Groq Whisper API, baixando o arquivo em memória e descartando após o uso
+    async transcreverAudio(audioUrl, apiKey) {
+      if (!apiKey) throw new Error('API Key do Groq não configurada.');
+
+      return new Promise((resolve, reject) => {
+        GM_xmlhttpRequest({
+          method: 'GET',
+          url: audioUrl,
+          responseType: 'blob',
+          onload: (dlRes) => {
+            if (dlRes.status < 200 || dlRes.status >= 300) {
+              reject(new Error(`Falha ao baixar áudio: HTTP ${dlRes.status}`));
+              return;
+            }
+
+            const audioBlob = dlRes.response;
+            const formData = new FormData();
+            formData.append('file', audioBlob, 'audio.ogg');
+            formData.append('model', 'whisper-large-v3');
+            formData.append('language', 'pt');
+
+            GM_xmlhttpRequest({
+              method: 'POST',
+              url: 'https://api.groq.com/openai/v1/audio/transcriptions',
+              headers: { 'Authorization': `Bearer ${apiKey}` },
+              data: formData,
+              onload: (res) => {
+                if (res.status >= 200 && res.status < 300) {
+                  try {
+                    const data = JSON.parse(res.responseText);
+                    resolve(data.text || '');
+                  } catch (e) {
+                    reject(new Error('Erro ao processar resposta do Whisper.'));
+                  }
+                } else {
+                  reject(new Error(`Whisper API HTTP ${res.status}: ${res.responseText}`));
+                }
+              },
+              onerror: (err) => {
+                reject(new Error(`Falha na transcrição: ${err.statusText || 'Conexão rejeitada'}`));
+              },
+              timeout: 120000,
+              ontimeout: () => reject(new Error('Transcrição expirou (Timeout de 120s).'))
+            });
+          },
+          onerror: () => reject(new Error('Falha ao baixar o áudio para transcrição.')),
+          timeout: 60000,
+          ontimeout: () => reject(new Error('Download do áudio expirou (Timeout de 60s).'))
+        });
       });
     }
   }
@@ -747,6 +809,29 @@
                 0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.4); }
                 70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
                 100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+              }
+              .ce-transcribe-btn {
+                display: inline-flex !important; align-items: center; gap: 4px;
+                background: none !important; border: 1px solid #d1d5db !important;
+                color: #6b7280 !important; font-size: 11px !important;
+                padding: 4px 10px !important; margin-top: 6px;
+                cursor: pointer; transition: all 0.2s;
+                font-family: inherit; box-shadow: none !important;
+                border-radius: 4px !important;
+              }
+              .ce-transcribe-btn:hover {
+                background: #f3f4f6 !important; color: #374151 !important;
+                border-color: #9ca3af !important; transform: none !important;
+              }
+              .ce-transcribe-btn:disabled { opacity: 0.7; cursor: wait; }
+              .ce-transcription-text {
+                color: #6b7280; font-size: 12px; font-style: italic;
+                padding: 6px 0 2px; margin-top: 4px;
+                border-top: 1px solid #e5e7eb; line-height: 1.4;
+              }
+              @keyframes ce-spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
               }
             `;
       document.head.appendChild(style);
@@ -1817,6 +1902,8 @@
       setInterval(() => this.injetarTimersNaSidebar(), 1000);
       setInterval(() => this.verificarTMA(), 30000);
       setInterval(() => this.ui.atualizarInstanciaAtiva(), 1000);
+      setInterval(() => this.injetarBotoesTranscricao(), 2000);
+      this._limparTranscricoesAntigas();
     }
 
     injetarTimersNaSidebar() {
@@ -2038,6 +2125,100 @@
       if (meses > 0) partes.push(meses === 1 ? '1 mês' : `${meses} meses`);
       if (partes.length === 0) return dias === 1 ? '1 dia' : `${dias} dias`;
       return partes.join(' e ');
+    }
+
+    // Injeta botões de transcrição em todos os players de áudio do chat
+    injetarBotoesTranscricao() {
+      const audios = document.querySelectorAll('.attachment-audio');
+      if (!audios.length) return;
+
+      const storage = this.ui.storage;
+      const transcricoes = storage.obter(CONFIG.KEYS.TRANSCRICOES, {});
+      const SVG_MIC = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
+
+      audios.forEach(audioDiv => {
+        if (audioDiv.querySelector('.ce-transcribe-btn') || audioDiv.querySelector('.ce-transcription-text')) return;
+
+        const urlEl = audioDiv.querySelector('.printable-url');
+        if (!urlEl) return;
+        const audioUrl = urlEl.textContent.trim();
+        if (!audioUrl) return;
+
+        const urlHash = audioUrl.split('/').pop().replace(/\./g, '_');
+
+        if (transcricoes[urlHash]) {
+          this._renderizarTranscricao(audioDiv, transcricoes[urlHash].text);
+          return;
+        }
+
+        const btn = document.createElement('button');
+        btn.className = 'ce-transcribe-btn';
+        btn.type = 'button';
+        btn.innerHTML = `${SVG_MIC} Transcrever`;
+
+        btn.addEventListener('click', async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+
+          const apiKey = storage.obter(CONFIG.KEYS.API_KEY_GROQ, '');
+          if (!apiKey) {
+            alert('Configure a API Key do Groq nas configurações do painel para usar a transcrição.');
+            return;
+          }
+
+          btn.disabled = true;
+          btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:ce-spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Transcrevendo...';
+
+          try {
+            const texto = await this.ui.ai.transcreverAudio(audioUrl, apiKey);
+            if (texto) {
+              const t = storage.obter(CONFIG.KEYS.TRANSCRICOES, {});
+              t[urlHash] = { text: texto, timestamp: Date.now() };
+              storage.salvar(CONFIG.KEYS.TRANSCRICOES, t);
+              btn.remove();
+              this._renderizarTranscricao(audioDiv, texto);
+            } else {
+              btn.disabled = false;
+              btn.innerHTML = `${SVG_MIC} Sem resultado`;
+              setTimeout(() => { btn.innerHTML = `${SVG_MIC} Transcrever`; }, 2000);
+            }
+          } catch (err) {
+            btn.disabled = false;
+            btn.textContent = `Erro: ${err.message}`;
+            btn.style.color = '#ef4444';
+            setTimeout(() => {
+              btn.style.color = '';
+              btn.innerHTML = `${SVG_MIC} Transcrever`;
+            }, 3000);
+          }
+        });
+
+        audioDiv.appendChild(btn);
+      });
+    }
+
+    // Renderiza o texto da transcrição abaixo do player de áudio
+    _renderizarTranscricao(audioDiv, texto) {
+      if (audioDiv.querySelector('.ce-transcription-text')) return;
+      const div = document.createElement('div');
+      div.className = 'ce-transcription-text';
+      div.textContent = texto;
+      audioDiv.appendChild(div);
+    }
+
+    // Remove transcrições com mais de 24h do localStorage
+    _limparTranscricoesAntigas() {
+      const storage = this.ui.storage;
+      const transcricoes = storage.obter(CONFIG.KEYS.TRANSCRICOES, {});
+      const agora = Date.now();
+      let mudou = false;
+      for (const key in transcricoes) {
+        if (agora - transcricoes[key].timestamp > 86400000) {
+          delete transcricoes[key];
+          mudou = true;
+        }
+      }
+      if (mudou) storage.salvar(CONFIG.KEYS.TRANSCRICOES, transcricoes);
     }
   }
 
