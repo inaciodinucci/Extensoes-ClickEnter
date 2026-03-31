@@ -43,6 +43,7 @@
       NOME_CLIENTE: 'extensao-nome-cliente',
       CRONOMETRO_STATUS: 'cronometro-status',
       MINUTOS_CUSTOM: 'minutos-custom',
+      CRONOMETRO_TITULO: 'cronometro-titulo',
       LEMBRETE_NOVO: 'lembrete-novo',
       LISTA_LEMBRETES: 'lista-lembretes',
       MENSAGEM_NOVA: 'mensagem-nova',
