@@ -72,51 +72,115 @@
   }
 
   class TimerModule {
-    constructor() {
+    constructor(storage) {
+      this.storage = storage;
+      this.key = 'clickenter_timers';
       this.timers = {};
       this.completedTimers = {};
+      setInterval(() => this._tick(), 1000);
+      this._tick();
     }
 
-    iniciar(cliente, minutos, onUpdateUI, onComplete) {
-      this.parar(cliente);
-      delete this.completedTimers[cliente];
-      let tempoRestante = minutos * 60;
+    _tick() {
+      if (!this.storage) return;
+      const data = this.storage.obter(this.key, {});
+      const agora = Date.now();
+      const newTimers = {};
+      const newCompleted = {};
+      let changed = false;
 
-      const tick = () => {
-        if (!this.timers[cliente]) return;
-        const m = Math.floor(tempoRestante / 60);
-        const s = tempoRestante % 60;
-        const texto = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-        const critico = tempoRestante <= 60;
-        this.timers[cliente].texto = texto;
-        this.timers[cliente].critico = critico;
-        if (this.timers[cliente].onUpdateUI) {
-          this.timers[cliente].onUpdateUI(cliente, texto, critico);
+      for (const cliente in data) {
+        const t = data[cliente];
+        
+        if (t.viewed) {
+          delete data[cliente];
+          changed = true;
+          continue;
         }
-        if (tempoRestante <= 0) {
-          this.completedTimers[cliente] = { time: new Date().toLocaleTimeString(), viewed: false };
-          this.parar(cliente);
-          if (onComplete) onComplete(cliente);
-          return;
+
+        if (agora < t.endTime) {
+          const tempoRestante = Math.ceil((t.endTime - agora) / 1000);
+          const m = Math.floor(tempoRestante / 60);
+          const s = tempoRestante % 60;
+          const texto = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+          const critico = tempoRestante <= 60;
+          newTimers[cliente] = { texto, critico, titulo: t.titulo || '' };
+        } else {
+          newCompleted[cliente] = { time: new Date(t.endTime).toLocaleTimeString(), viewed: false, titulo: t.titulo || '' };
+          if (!t.notified) {
+            this._notificar(cliente, t.titulo);
+            t.notified = true;
+            changed = true;
+          }
         }
-        tempoRestante--;
+      }
+
+      this.timers = newTimers;
+      this.completedTimers = newCompleted;
+      if (changed) {
+        this.storage.salvar(this.key, data);
+      }
+    }
+
+    _notificar(cliente, titulo) {
+      if (window.Notification && Notification.permission !== 'granted') return;
+      
+      const msgAviso = (titulo && titulo.trim() !== '') 
+        ? `${titulo} (${cliente})` 
+        : `O cronômetro configurado para ${cliente} encerrou.`;
+
+      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+      audio.play().catch(e => console.log('Áudio automático bloqueado pelo navegador', e));
+
+      if (window.Notification && Notification.permission === 'granted') {
+        new Notification('Cronômetro Esgotado!', {
+          body: msgAviso,
+          icon: 'https://cdn-icons-png.flaticon.com/512/3030/3030285.png',
+          tag: `ce_timer_${cliente}`
+        });
+      }
+
+      const originalTitle = document.title;
+      document.title = '(Alerta) ' + msgAviso;
+      setTimeout(() => document.title = originalTitle, 5000);
+    }
+
+    iniciar(cliente, minutos, titulo = '') {
+      const data = this.storage.obter(this.key, {});
+      data[cliente] = {
+        endTime: Date.now() + (minutos * 60 * 1000),
+        titulo: titulo,
+        notified: false,
+        viewed: false
       };
-
-      this.timers[cliente] = { intervalo: null, onUpdateUI, texto: 'Calculando...', critico: false };
-      tick();
-      this.timers[cliente].intervalo = setInterval(tick, 1000);
+      this.storage.salvar(this.key, data);
+      this._tick();
     }
 
     marcarVisualizado(cliente) {
-      if (this.completedTimers[cliente]) {
-        this.completedTimers[cliente].viewed = true;
+      const data = this.storage.obter(this.key, {});
+      if (data[cliente]) {
+        data[cliente].viewed = true;
+        this.storage.salvar(this.key, data);
+        this._tick();
       }
     }
 
     parar(cliente) {
-      if (this.timers[cliente] && this.timers[cliente].intervalo) {
-        clearInterval(this.timers[cliente].intervalo);
-        delete this.timers[cliente];
+      const data = this.storage.obter(this.key, {});
+      if (data[cliente]) {
+        delete data[cliente];
+        this.storage.salvar(this.key, data);
+        this._tick();
+      }
+    }
+
+    atualizarTitulo(cliente, novoTitulo) {
+      const data = this.storage.obter(this.key, {});
+      if (data[cliente]) {
+        data[cliente].titulo = novoTitulo;
+        this.storage.salvar(this.key, data);
+        this._tick();
       }
     }
   }
@@ -199,7 +263,8 @@
 
 
     _dispararNotificacao(cliente) {
-      const msg = `TMA Excedido: O atendimento de ${cliente} já passou de 1 hora!`;
+      const limiteCritico = this.storage.obter(CONFIG.KEYS.TMA_CRITICO_MIN, 60);
+      const msg = `TMA Crítico: O atendimento de ${cliente} atingiu ${limiteCritico} minutos!`;
       new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3').play().catch(() => { });
       if (window.Notification && Notification.permission === 'granted') {
         new Notification('TMA Excedido!', { body: msg, icon: 'https://cdn-icons-png.flaticon.com/512/3030/3030285.png' });
@@ -721,7 +786,8 @@
               .ce-timer-active-button { border-left: 4px solid #1D6CAE !important; background-color: rgba(29, 108, 174, 0.05) !important; transition: all 0.3s ease; }
               .ce-timer-completed-button { border-left: 4px solid #ED5565 !important; background-color: rgba(237, 85, 101, 0.08) !important; animation: ce-pulse-bg 2s infinite; }
               @keyframes ce-pulse-bg { 0% { background-color: rgba(237, 85, 101, 0.05); } 50% { background-color: rgba(237, 85, 101, 0.15); } 100% { background-color: rgba(237, 85, 101, 0.05); } }
-
+              .talk-group { overflow-x: hidden !important; overflow-y: auto !important; scrollbar-width: none !important; }
+              .talk-group::-webkit-scrollbar { display: none !important; }
               .ce-tma-border-overlay {
                 position: absolute !important; inset: -3px !important;
                 border-radius: 0 !important; overflow: hidden !important;
@@ -1176,6 +1242,16 @@
       t.className = 'section-title'; t.textContent = 'CRONÔMETRO';
       wrapper.appendChild(t);
 
+      const inputTitulo = document.createElement('input');
+      inputTitulo.type = 'text'; inputTitulo.id = CONFIG.DOM_IDS.CRONOMETRO_TITULO;
+      inputTitulo.placeholder = 'Descrição do cronômetro (opcional)...';
+      Object.assign(inputTitulo.style, { width: '100%', marginBottom: '8px' });
+      inputTitulo.addEventListener('input', () => {
+        if (this.clienteAtual) {
+          this.timer.atualizarTitulo(this.clienteAtual, inputTitulo.value.trim());
+        }
+      });
+
       const conteudoBotoes = document.createElement('div');
       Object.assign(conteudoBotoes.style, { display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' });
 
@@ -1214,7 +1290,7 @@
         }
       });
       conteudoBotoes.append(inputCustom, btnCustom, btnStop);
-      wrapper.append(conteudoBotoes, status);
+      wrapper.append(inputTitulo, conteudoBotoes, status);
       return wrapper;
     }
 
@@ -1509,39 +1585,11 @@
       }
 
       const clienteAgendado = this.clienteAtual;
+      const inputTitulo = document.getElementById(CONFIG.DOM_IDS.CRONOMETRO_TITULO);
+      const titulo = inputTitulo ? inputTitulo.value.trim() : '';
 
-      this.timer.iniciar(
-        clienteAgendado,
-        minutos,
-        (clienteUpdate, texto, critico) => {
-          if (this.clienteAtual === clienteUpdate) {
-            spanStatus.textContent = texto;
-            spanStatus.style.color = critico ? 'red' : 'black';
-          }
-        },
-        (clienteComplete) => {
-          if (this.clienteAtual === clienteComplete && spanStatus) {
-            spanStatus.textContent = 'Tempo Esgotado!';
-            spanStatus.style.color = 'black';
-          }
-
-          const msgAviso = `O cronometro configurado para ${clienteComplete} encerrou.`;
-
-          const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-          audio.play().catch(e => console.log('Áudio automático bloqueado pelo navegador', e));
-
-          if (window.Notification && Notification.permission === 'granted') {
-            new Notification('Cronômetro Esgotado!', {
-              body: msgAviso,
-              icon: 'https://cdn-icons-png.flaticon.com/512/3030/3030285.png'
-            });
-          }
-
-          const originalTitle = document.title;
-          document.title = '(Alerta) ' + msgAviso;
-          setTimeout(() => document.title = originalTitle, 5000);
-        }
-      );
+      this.timer.iniciar(clienteAgendado, minutos, titulo);
+      this._atualizarCronometroDisplay();
     }
 
     abrirPainel() {
@@ -1642,6 +1690,23 @@
       if (styleEl) styleEl.remove();
     }
 
+    _atualizarCronometroDisplay() {
+      const spanStatus = document.getElementById(CONFIG.DOM_IDS.CRONOMETRO_STATUS);
+      if (!spanStatus) return;
+
+      if (this.timer.timers[this.clienteAtual]) {
+        const t = this.timer.timers[this.clienteAtual];
+        spanStatus.textContent = t.texto || 'Calculando...';
+        spanStatus.style.color = t.critico ? '#ED5565' : '#1D6CAE';
+      } else if (this.timer.completedTimers[this.clienteAtual] && !this.timer.completedTimers[this.clienteAtual].viewed) {
+        spanStatus.textContent = 'Tempo Esgotado!';
+        spanStatus.style.color = 'black';
+      } else {
+        spanStatus.textContent = 'Parado';
+        spanStatus.style.color = '#8089A0';
+      }
+    }
+
     atualizarInstanciaAtiva() {
       const painel = document.getElementById(CONFIG.DOM_IDS.PAINEL);
       const isAberto = painel && painel.style.right === '0px';
@@ -1653,6 +1718,7 @@
         this._sincronizarCliente();
       } else {
         this._atualizarTMADisplay();
+        this._atualizarCronometroDisplay();
       }
     }
 
@@ -1664,16 +1730,11 @@
       const lblExtensao = document.getElementById(CONFIG.DOM_IDS.NOME_CLIENTE);
       if (lblExtensao) lblExtensao.textContent = nomeCliente;
 
-      const spanStatus = document.getElementById(CONFIG.DOM_IDS.CRONOMETRO_STATUS);
-      if (spanStatus) {
-        if (this.timer.timers[this.clienteAtual]) {
-          const t = this.timer.timers[this.clienteAtual];
-          spanStatus.textContent = t.texto || 'Calculando...';
-          spanStatus.style.color = t.critico ? '#ED5565' : '#1D6CAE';
-        } else {
-          spanStatus.textContent = 'Parado';
-          spanStatus.style.color = '#8089A0';
-        }
+      this._atualizarCronometroDisplay();
+
+      const inputTitulo = document.getElementById(CONFIG.DOM_IDS.CRONOMETRO_TITULO);
+      if (inputTitulo) {
+        inputTitulo.value = this.timer.timers[this.clienteAtual]?.titulo || '';
       }
 
       this.renderizarListaLembretes();
@@ -2226,7 +2287,7 @@
   class ClickEnterExtension {
     constructor() {
       this.storage = new StorageManager();
-      this.timer = new TimerModule();
+      this.timer = new TimerModule(this.storage);
       this.tma = new TMAModule(this.storage);
       this.ai = new AIModule();
       this.ui = new UIManager(this.storage, this.timer, this.ai, this.tma);
