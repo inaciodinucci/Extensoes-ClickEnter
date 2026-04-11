@@ -6,7 +6,9 @@
 // @author       inaciodinucci
 // @match        https://synsuite.clickenter.com.br/*
 // @match        https://clickenter.cxm.pipe.run/agent*
+// @run-at       document-start
 // @grant        GM_xmlhttpRequest
+// @require      https://cdn.jsdelivr.net/npm/darkreader@4.9.92/darkreader.min.js
 // @downloadURL  https://raw.githubusercontent.com/inaciodinucci/Userscript-PipeRun-ClickEnter/main/ClickEnter-Utilities.user.js
 // @updateURL    https://raw.githubusercontent.com/inaciodinucci/Userscript-PipeRun-ClickEnter/main/ClickEnter-Utilities.user.js
 // @connect      generativelanguage.googleapis.com
@@ -23,6 +25,7 @@
 
   const CONFIG = {
     KEYS: {
+      THEME: 'clickenter_theme',
       LEMBRETES: 'clickenter_lembretes',
       MENSAGENS: 'clickenter_mensagens',
       AI_PROVIDER: 'clickenter_ai_provider',
@@ -70,6 +73,99 @@
       return data ? JSON.parse(data) : defaultVal;
     }
   }
+
+  // ==== INJEÇÃO ANTI-FOUC MODO ESCURO ====
+  const foucStorage = new StorageManager();
+  const currentTheme = foucStorage.obter('clickenter_theme', 'claro');
+  if (currentTheme === 'escuro') {
+    const darkStyle = document.createElement('style');
+    darkStyle.id = 'ce-dark-mode-style';
+    // Estilos forçados para manter a integridade visual do estilo WhatsApp Escuro
+    darkStyle.textContent = `
+        html, body, #wrapper, #page-wrapper, .gray-bg, .wrapper-content { 
+            background-color: #0b141a !important; 
+        }
+        #talk-panel { background-image: none !important; background-color: #0b141a !important; }
+        
+        /* ============== WHATSAPP DARK THEME COLORS ============== */
+        
+        /* Bolhas Enviadas (A Minha Mensagem - Verde WhatsApp) */
+        .talk-message-group.me .talk-message, .talk-message-group.me .bubble, .message-content.right, [class*="sent"] { 
+            background-color: #005c4b !important; /* Verde WA Dark */
+            color: #e9edef !important; 
+            border: none !important; /* Remove bordas duras */
+            box-shadow: 0 1px 0.5px rgba(11,20,26,.13) !important;
+        }
+        
+        /* Bolhas Recebidas (Cliente - Cinza Escuro WhatsApp) */
+        .talk-message-group:not(.me) .talk-message, .talk-message-group:not(.me) .bubble, .talk-reply-container, .message-content:not(.right) { 
+            background-color: #202c33 !important; /* Cinza WA Dark */
+            color: #e9edef !important; 
+            border: none !important;
+            box-shadow: 0 1px 0.5px rgba(11,20,26,.13) !important;
+        }
+
+        /* Textos fixos mais nítidos e brilhantes (Remove o efeito apagado) */
+        .talk-reply-container *, .talk-message-group *, .talk-customer-name, strong, b, h1, h2, h3, h4, h5, h6 {
+            opacity: 1 !important; 
+            color: #e9edef !important;
+            text-shadow: none !important;
+            -webkit-font-smoothing: antialiased !important;
+        }
+        
+        /* Área de Digitação igual WA */
+        .emojionearea, .talk-message-field {
+            background-color: #202c33 !important;
+            border: 1px solid #2a3942 !important;
+        }
+    `;
+    if (document.documentElement) {
+      document.documentElement.appendChild(darkStyle);
+    }
+
+    const loadProfessionalDark = () => {
+        if (typeof DarkReader === 'undefined') return;
+        
+        DarkReader.setFetchMethod(window.fetch);
+        DarkReader.enable({
+            brightness: 105,   /* Aumenta luminosidade levemente */
+            contrast: 115,     /* Remove a opacidade/efeito desbotado (Filtro) */
+            sepia: 0,
+            theme: {
+                mode: 1,
+                darkSchemeBackgroundColor: '#0b141a', /* Fundo WA */
+                darkSchemeTextColor: '#e9edef',       /* Texto WA */
+                selectionColor: '#005c4b'
+            }
+        });
+        
+        // Remove a imagem nativa do PipeRun que atrapalha texturas
+        const observer = new MutationObserver(() => {
+            const tp = document.getElementById('talk-panel');
+            if (tp && tp.style.backgroundImage) {
+                tp.style.setProperty('background-image', 'none', 'important');
+            }
+            // Remove o inline style covarde da navbar do Ace Admin
+            const nav = document.getElementById('navbar');
+            if (nav && nav.style.backgroundColor) {
+                nav.style.removeProperty('background-color');
+            }
+        });
+        observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
+    };
+
+    if (typeof DarkReader !== 'undefined') {
+        loadProfessionalDark();
+    } else {
+        // Carregamento dinâmico paralelo caso o Tampermonkey não dispare o @require imediatamente
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/darkreader@4.9.92/darkreader.min.js';
+        script.onload = loadProfessionalDark;
+        document.head = document.head || document.getElementsByTagName('head')[0];
+        if (document.head) document.head.appendChild(script);
+    }
+  }
+  // =======================================
 
   class TimerModule {
     constructor(storage) {
@@ -1205,7 +1301,16 @@
       selMode.innerHTML = '<option value="overlay">Overlay (flutuante sobre a página)</option><option value="chat">Chat (integrado ao lado do chat)</option>';
       selMode.value = this.storage.obter(CONFIG.KEYS.DISPLAY_MODE, 'overlay');
 
-      cardExib.append(cardExibTitle, exibDesc, lblExib, selMode);
+      const lblTema = document.createElement('div');
+      Object.assign(lblTema.style, { fontSize: '12px', color: '#8089A0', marginBottom: '4px', marginTop: '14px' });
+      lblTema.textContent = 'Tema Visual';
+
+      const selTema = document.createElement('select');
+      selTema.style.width = '100%';
+      selTema.innerHTML = '<option value="claro">Claro (Original)</option><option value="escuro">Escuro</option>';
+      selTema.value = this.storage.obter(CONFIG.KEYS.THEME, 'claro');
+
+      cardExib.append(cardExibTitle, exibDesc, lblExib, selMode, lblTema, selTema);
 
       const btnSave = document.createElement('button');
       btnSave.textContent = 'Salvar Configurações';
@@ -1223,11 +1328,18 @@
         if (!isNaN(criticoVal) && criticoVal > 0) this.storage.salvar(CONFIG.KEYS.TMA_CRITICO_MIN, criticoVal);
         const oldMode = this.storage.obter(CONFIG.KEYS.DISPLAY_MODE, 'overlay');
         const newMode = selMode.value;
+        const oldTheme = this.storage.obter(CONFIG.KEYS.THEME, 'claro');
+        const newTheme = selTema.value;
+
         this.storage.salvar(CONFIG.KEYS.DISPLAY_MODE, newMode);
+        this.storage.salvar(CONFIG.KEYS.THEME, newTheme);
         overlay.remove();
         if (oldMode !== newMode) {
           this.fecharPainel();
           setTimeout(() => this.abrirPainel(), 450);
+        }
+        if (oldTheme !== newTheme) {
+          location.reload();
         }
       });
 
@@ -2302,6 +2414,10 @@
   }
 
   const app = new ClickEnterExtension();
-  app.boot();
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => app.boot());
+  } else {
+    app.boot();
+  }
 
 })();
