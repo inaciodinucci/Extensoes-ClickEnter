@@ -80,40 +80,37 @@
   if (currentTheme === 'escuro') {
     const darkStyle = document.createElement('style');
     darkStyle.id = 'ce-dark-mode-style';
-    // Estilos forçados para manter a integridade visual do estilo WhatsApp Escuro
+    // Estilo inicial mitigador de FOUC e personalização profunda sobre o layout original
     darkStyle.textContent = `
         html, body, #wrapper, #page-wrapper, .gray-bg, .wrapper-content { 
             background-color: #0b141a !important; 
         }
-        #talk-panel { background-image: none !important; background-color: #0b141a !important; }
-        
-        /* ============== WHATSAPP DARK THEME COLORS ============== */
-        
-        /* Bolhas Enviadas (A Minha Mensagem - Verde WhatsApp) */
+        #talk-panel { 
+            background-color: #0b141a !important; 
+            background-image: url('https://raw.githubusercontent.com/inaciodinucci/Userscript-PipeRun-ClickEnter/refs/heads/main/icons/bg_talk.png') !important;
+            background-repeat: repeat !important;
+        }
+        img[src*="logo.png"] {
+            content: url('https://raw.githubusercontent.com/inaciodinucci/Userscript-PipeRun-ClickEnter/refs/heads/main/icons/logo.png') !important;
+        }
         .talk-message-group.me .talk-message, .talk-message-group.me .bubble, .message-content.right, [class*="sent"] { 
-            background-color: #005c4b !important; /* Verde WA Dark */
+            background-color: #005c4b !important;
             color: #e9edef !important; 
-            border: none !important; /* Remove bordas duras */
+            border: 1px solid #02826a !important;
             box-shadow: 0 1px 0.5px rgba(11,20,26,.13) !important;
         }
-        
-        /* Bolhas Recebidas (Cliente - Cinza Escuro WhatsApp) */
         .talk-message-group:not(.me) .talk-message, .talk-message-group:not(.me) .bubble, .talk-reply-container, .message-content:not(.right) { 
-            background-color: #202c33 !important; /* Cinza WA Dark */
+            background-color: #343e45 !important;
             color: #e9edef !important; 
-            border: none !important;
+            border: 1px solid #4b5963 !important;
             box-shadow: 0 1px 0.5px rgba(11,20,26,.13) !important;
         }
-
-        /* Textos fixos mais nítidos e brilhantes (Remove o efeito apagado) */
         .talk-reply-container *, .talk-message-group *, .talk-customer-name, strong, b, h1, h2, h3, h4, h5, h6 {
             opacity: 1 !important; 
             color: #e9edef !important;
             text-shadow: none !important;
             -webkit-font-smoothing: antialiased !important;
         }
-        
-        /* Área de Digitação igual WA */
         .emojionearea, .talk-message-field {
             background-color: #202c33 !important;
             border: 1px solid #2a3942 !important;
@@ -128,23 +125,19 @@
         
         DarkReader.setFetchMethod(window.fetch);
         DarkReader.enable({
-            brightness: 105,   /* Aumenta luminosidade levemente */
-            contrast: 115,     /* Remove a opacidade/efeito desbotado (Filtro) */
+            brightness: 100,
+            contrast: 100,
             sepia: 0,
             theme: {
                 mode: 1,
-                darkSchemeBackgroundColor: '#0b141a', /* Fundo WA */
-                darkSchemeTextColor: '#e9edef',       /* Texto WA */
+                darkSchemeBackgroundColor: '#0b141a',
+                darkSchemeTextColor: '#e9edef',
                 selectionColor: '#005c4b'
             }
         });
         
-        // Remove a imagem nativa do PipeRun que atrapalha texturas
+        // Remove apenas CSS inline indevido do AceAdmin (não toca mais nas imagens)
         const observer = new MutationObserver(() => {
-            const tp = document.getElementById('talk-panel');
-            if (tp && tp.style.backgroundImage) {
-                tp.style.setProperty('background-image', 'none', 'important');
-            }
             // Remove o inline style covarde da navbar do Ace Admin
             const nav = document.getElementById('navbar');
             if (nav && nav.style.backgroundColor) {
