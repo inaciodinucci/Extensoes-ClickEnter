@@ -237,6 +237,18 @@
                 filter: none !important;
                 opacity: 1 !important;
             }
+
+            /* Força as cores corretas dos balões sobre o DarkReader */
+            .talk-message-group.me .talk-message,
+            .talk-message-group.me .bubble,
+            .message-content.right {
+                background-color: #144D37 !important;
+            }
+            .talk-message-group:not(.me) .talk-message,
+            .talk-message-group:not(.me) .bubble,
+            .message-content:not(.right) {
+                background-color: #242626 !important;
+            }
         `;
       document.head.appendChild(drFixStyle);
 
