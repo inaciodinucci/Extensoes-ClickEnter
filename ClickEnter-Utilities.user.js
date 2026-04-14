@@ -87,7 +87,7 @@
         }
         #talk-panel { 
             background-color: #0b141a !important; 
-            background-image: url('https://raw.githubusercontent.com/inaciodinucci/Userscript-PipeRun-ClickEnter/refs/heads/main/icons/bg_talk.png') !important;
+            background-image: url('https://raw.githubusercontent.com/inaciodinucci/Userscript-PipeRun-ClickEnter/refs/heads/main/icons/bg_talk-2.png) !important;
             background-repeat: repeat !important;
         }
         img[src*="logo.png"] {
@@ -183,25 +183,25 @@
     }
 
     const loadProfessionalDark = () => {
-        if (typeof DarkReader === 'undefined') return;
-        
-        DarkReader.setFetchMethod(window.fetch);
-        DarkReader.enable({
-            brightness: 100,
-            contrast: 100,
-            sepia: 0,
-            theme: {
-                mode: 1,
-                darkSchemeBackgroundColor: '#0b141a',
-                darkSchemeTextColor: '#e9edef',
-                selectionColor: '#144D37'
-            }
-        });
-        
-        // Injeta CSS que reverte a inversão do DarkReader em mídias e checkmarks
-        const drFixStyle = document.createElement('style');
-        drFixStyle.id = 'ce-darkreader-fix';
-        drFixStyle.textContent = `
+      if (typeof DarkReader === 'undefined') return;
+
+      DarkReader.setFetchMethod(window.fetch);
+      DarkReader.enable({
+        brightness: 100,
+        contrast: 100,
+        sepia: 0,
+        theme: {
+          mode: 1,
+          darkSchemeBackgroundColor: '#0b141a',
+          darkSchemeTextColor: '#e9edef',
+          selectionColor: '#144D37'
+        }
+      });
+
+      // Injeta CSS que reverte a inversão do DarkReader em mídias e checkmarks
+      const drFixStyle = document.createElement('style');
+      drFixStyle.id = 'ce-darkreader-fix';
+      drFixStyle.textContent = `
             /* Reverte inversão do DarkReader em imagens, vídeos e anexos do chat */
             .talk-message-group img,
             .talk-message-group video,
@@ -238,17 +238,17 @@
                 opacity: 1 !important;
             }
         `;
-        document.head.appendChild(drFixStyle);
+      document.head.appendChild(drFixStyle);
 
-        // Remove apenas CSS inline indevido do AceAdmin
-        const observer = new MutationObserver(() => {
-            // Remove o inline style da navbar do Ace Admin
-            const nav = document.getElementById('navbar');
-            if (nav && nav.style.backgroundColor) {
-                nav.style.removeProperty('background-color');
-            }
-        });
-        observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
+      // Remove apenas CSS inline indevido do AceAdmin
+      const observer = new MutationObserver(() => {
+        // Remove o inline style da navbar do Ace Admin
+        const nav = document.getElementById('navbar');
+        if (nav && nav.style.backgroundColor) {
+          nav.style.removeProperty('background-color');
+        }
+      });
+      observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
     };
 
     if (typeof DarkReader !== 'undefined') {
