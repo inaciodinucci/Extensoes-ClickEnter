@@ -83,109 +83,112 @@
     darkStyle.id = 'ce-dark-mode-style';
     // Estilo inicial mitigador de FOUC e personalização profunda sobre o layout original
     darkStyle.textContent = `
-        html, body, #wrapper, #page-wrapper, .gray-bg, .wrapper-content { 
-            background-color: #0b141a !important; 
-        }
-        #navbar, #navbar.navbar-default, .navbar.navbar-default {
-            background-color: #0b141a !important;
-            border-color: #1a2a33 !important;
-        }
-        #navbar-container, .navbar-container {
-            background-color: #0b141a !important;
-        }
-        #talk-panel { 
-            background-color: #0b141a !important; 
-            background-image: url('https://raw.githubusercontent.com/inaciodinucci/Userscript-PipeRun-ClickEnter/refs/heads/main/icons/bg_talk-2.png') !important;
-            background-repeat: repeat !important;
-        }
-        img[src*="logo.png"] {
-            content: url('https://raw.githubusercontent.com/inaciodinucci/Userscript-PipeRun-ClickEnter/refs/heads/main/icons/logo.png') !important;
-        }
+          html, body, #wrapper, #page-wrapper, .gray-bg, .wrapper-content { 
+              background-color: #0b141a !important; 
+          }
+          #navbar, #navbar.navbar-default, .navbar.navbar-default,
+          #navbar-container, .navbar-container {
+              background-color: #121212 !important;
+              border-color: #1e1e1e !important;
+          }
+          #talk-panel { 
+              background-color: #0b141a !important; 
+              background-image: url('https://raw.githubusercontent.com/inaciodinucci/Userscript-PipeRun-ClickEnter/refs/heads/main/icons/bg_talk-2.png') !important;
+              background-repeat: repeat !important;
+          }
+          img[src*="logo.png"] {
+              content: url('https://raw.githubusercontent.com/inaciodinucci/Userscript-PipeRun-ClickEnter/refs/heads/main/icons/logo.png') !important;
+          }
 
-        /* Bolha do atendente (Eu) */
-        .talk-message-group.me .talk-message, .talk-message-group.me .bubble, .message-content.right, [class*="sent"] { 
-            background-color: #144D37 !important;
-            color: #e9edef !important; 
-            border: 1px solid #1a5f43 !important;
-            box-shadow: 0 1px 0.5px rgba(11,20,26,.13) !important;
-        }
-        /* Fundo de mensagem respondida (Eu) */
-        .talk-message-group.me .talk-reply-container,
-        .talk-message-group.me .talk-message-reply,
-        .talk-message-group.me .talk-reply-body { 
-            background-color: #103E2C !important;
-            border-left: 3px solid #1a5f43 !important;
-        }
+          /* Bolha do atendente (Eu) */
+          .talk-message-group.me .talk-message, .talk-message-group.me .bubble, .message-content.right, [class*="sent"] { 
+              background-color: #144D37 !important;
+              --darkreader-inline-bgcolor: #144D37 !important;
+              color: #e9edef !important; 
+              border: 1px solid #1a5f43 !important;
+              box-shadow: 0 1px 0.5px rgba(11,20,26,.13) !important;
+          }
+          /* Fundo de mensagem respondida (Eu) */
+          .talk-message-group.me .talk-reply-container,
+          .talk-message-group.me .talk-message-reply,
+          .talk-message-group.me .talk-reply-body { 
+              background-color: #103E2C !important;
+              --darkreader-inline-bgcolor: #103E2C !important;
+              border-left: 3px solid #1a5f43 !important;
+          }
 
-        /* Bolha do cliente */
-        .talk-message-group:not(.me) .talk-message, .talk-message-group:not(.me) .bubble, .message-content:not(.right) { 
-            background-color: #242626 !important;
-            color: #e9edef !important; 
-            border: 1px solid #3a3c3c !important;
-            box-shadow: 0 1px 0.5px rgba(11,20,26,.13) !important;
-        }
-        /* Fundo de mensagem respondida (Cliente) */
-        .talk-message-group:not(.me) .talk-reply-container,
-        .talk-message-group:not(.me) .talk-message-reply,
-        .talk-message-group:not(.me) .talk-reply-body { 
-            background-color: #1D1E1E !important;
-            border-left: 3px solid #3a3c3c !important;
-        }
+          /* Bolha do cliente */
+          .talk-message-group:not(.me) .talk-message, .talk-message-group:not(.me) .bubble, .message-content:not(.right) { 
+              background-color: #242626 !important;
+              --darkreader-inline-bgcolor: #242626 !important;
+              color: #e9edef !important; 
+              border: 1px solid #3a3c3c !important;
+              box-shadow: 0 1px 0.5px rgba(11,20,26,.13) !important;
+          }
+          /* Fundo de mensagem respondida (Cliente) */
+          .talk-message-group:not(.me) .talk-reply-container,
+          .talk-message-group:not(.me) .talk-message-reply,
+          .talk-message-group:not(.me) .talk-reply-body { 
+              background-color: #1D1E1E !important;
+              --darkreader-inline-bgcolor: #1D1E1E !important;
+              border-left: 3px solid #3a3c3c !important;
+          }
 
-        /* Texto legível sem interferir em mídias */
-        .talk-reply-container *, .talk-message-text, .talk-message-group .talk-message-text *, 
-        .talk-customer-name, strong, b, h1, h2, h3, h4, h5, h6 {
-            opacity: 1 !important; 
-            color: #e9edef !important;
-            text-shadow: none !important;
-            -webkit-font-smoothing: antialiased !important;
-        }
+          /* Texto legível sem interferir em mídias */
+          .talk-reply-container *, .talk-message-text, .talk-message-group .talk-message-text *, 
+          .talk-customer-name, strong, b, h1, h2, h3, h4, h5, h6 {
+              opacity: 1 !important; 
+              color: #e9edef !important;
+              text-shadow: none !important;
+              -webkit-font-smoothing: antialiased !important;
+              filter: none !important;
+          }
 
-        /* Protege checkmarks / ícones de status de leitura */
-        .talk-message-info svg,
-        .talk-message-info img,
-        .talk-message-info i,
-        .talk-message-info .icon-check,
-        .talk-message-info [class*="check"],
-        .talk-message-info [class*="read"],
-        .talk-message-info [class*="delivered"],
-        .talk-message-info [class*="status"],
-        .talk-message-status,
-        .message-status,
-        [class*="msg-check"],
-        [class*="message-check"],
-        [class*="double-check"] {
-            filter: none !important;
-            opacity: 1 !important;
-            color: inherit !important;
-        }
+          /* Protege checkmarks / ícones de status de leitura */
+          .talk-message-info svg,
+          .talk-message-info img,
+          .talk-message-info i,
+          .talk-message-info .icon-check,
+          .talk-message-info [class*="check"],
+          .talk-message-info [class*="read"],
+          .talk-message-info [class*="delivered"],
+          .talk-message-info [class*="status"],
+          .talk-message-status,
+          .message-status,
+          [class*="msg-check"],
+          [class*="message-check"],
+          [class*="double-check"] {
+              filter: none !important;
+              opacity: 1 !important;
+              color: inherit !important;
+          }
 
-        /* Protege imagens, vídeos e anexos contra inversão de cor */
-        .talk-message-group img:not([src*="logo.png"]),
-        .talk-message-group video,
-        .talk-message-group canvas,
-        .talk-message-group picture,
-        .talk-message-group .attachment-image,
-        .talk-message-group .attachment-video,
-        .talk-message-group .attachment-file,
-        .talk-message-group [class*="attachment"],
-        .talk-message-group [class*="media"],
-        .talk-message-group [class*="thumbnail"],
-        .talk-message-group [class*="preview"],
-        .talk-message-group .file-preview,
-        #talk-panel img:not([src*="logo.png"]),
-        #talk-panel video,
-        #talk-panel canvas {
-            filter: none !important;
-            opacity: 1 !important;
-            mix-blend-mode: normal !important;
-        }
+          /* Protege imagens, vídeos e anexos contra inversão de cor */
+          .talk-message-group img:not([src*="logo.png"]),
+          .talk-message-group video,
+          .talk-message-group canvas,
+          .talk-message-group picture,
+          .talk-message-group .attachment-image,
+          .talk-message-group .attachment-video,
+          .talk-message-group .attachment-file,
+          .talk-message-group [class*="attachment"],
+          .talk-message-group [class*="media"],
+          .talk-message-group [class*="thumbnail"],
+          .talk-message-group [class*="preview"],
+          .talk-message-group .file-preview,
+          #talk-panel img:not([src*="logo.png"]),
+          #talk-panel video,
+          #talk-panel canvas {
+              filter: none !important;
+              opacity: 1 !important;
+              mix-blend-mode: normal !important;
+          }
 
-        .emojionearea, .talk-message-field {
-            background-color: #202c33 !important;
-            border: 1px solid #2a3942 !important;
-        }
-    `;
+          .emojionearea, .talk-message-field {
+              background-color: #202c33 !important;
+              border: 1px solid #2a3942 !important;
+          }
+      `;
     if (document.documentElement) {
       document.documentElement.appendChild(darkStyle);
     }
@@ -205,139 +208,229 @@
           selectionColor: '#144D37'
         },
         css: `
-          /* Navbar escura */
-          #navbar, #navbar.navbar-default, .navbar.navbar-default,
-          #navbar-container, .navbar-container {
-            background-color: #0b141a !important;
-            border-color: #1a2a33 !important;
-          }
-          /* Bolha do atendente (Eu) */
-          .talk-message-group.me .talk-message,
-          .talk-message-group.me .bubble,
-          .message-content.right,
-          [class*="sent"] {
-            background-color: #144D37 !important;
-            color: #e9edef !important;
-          }
-          /* Fundo de resposta (Eu) */
-          .talk-message-group.me .talk-reply-container,
-          .talk-message-group.me .talk-message-reply,
-          .talk-message-group.me .talk-reply-body {
-            background-color: #103E2C !important;
-          }
-          /* Bolha do cliente */
-          .talk-message-group:not(.me) .talk-message,
-          .talk-message-group:not(.me) .bubble,
-          .message-content:not(.right) {
-            background-color: #242626 !important;
-            color: #e9edef !important;
-          }
-          /* Fundo de resposta (Cliente) */
-          .talk-message-group:not(.me) .talk-reply-container,
-          .talk-message-group:not(.me) .talk-message-reply,
-          .talk-message-group:not(.me) .talk-reply-body {
-            background-color: #1D1E1E !important;
-          }
-          /* Protege mídias e anexos */
-          .talk-message-group img,
-          .talk-message-group video,
-          .talk-message-group canvas,
-          .talk-message-group picture,
-          .talk-message-group [class*="attachment"],
-          .talk-message-group [class*="media"],
-          .talk-message-group [class*="thumbnail"],
-          #talk-panel img:not([src*="logo.png"]),
-          #talk-panel video,
-          #talk-panel canvas {
-            filter: none !important;
-            opacity: 1 !important;
-            mix-blend-mode: normal !important;
-          }
-          /* Protege checkmarks de leitura */
-          .talk-message-info svg,
-          .talk-message-info img,
-          .talk-message-info i,
-          .talk-message-info [class*="check"],
-          .talk-message-info [class*="status"],
-          .talk-message-status,
-          [class*="msg-check"],
-          [class*="double-check"] {
-            filter: none !important;
-            opacity: 1 !important;
-          }
-        `
-      });
-
-      // Injeta CSS fix apenas quando o head existir
-      const injectFixCSS = () => {
-        if (document.getElementById('ce-darkreader-fix')) return;
-        const drFixStyle = document.createElement('style');
-        drFixStyle.id = 'ce-darkreader-fix';
-        drFixStyle.textContent = `
+            /* Navbar cinza neutro */
+            #navbar, #navbar.navbar-default, .navbar.navbar-default,
+            #navbar-container, .navbar-container {
+              background-color: #121212 !important;
+              border-color: #1e1e1e !important;
+            }
+            /* Bolhas de chat com proteção total */
+            .talk-message-group.me .talk-message,
+            .talk-message-group.me .bubble,
+            .message-content.right,
+            [class*="sent"] {
+              background-color: #144D37 !important;
+              --darkreader-inline-bgcolor: #144D37 !important;
+              color: #e9edef !important;
+              filter: none !important;
+              background-image: none !important;
+            }
+            .talk-message-group.me .talk-reply-container,
+            .talk-message-group.me .talk-reply-body {
+              background-color: #103E2C !important;
+              --darkreader-inline-bgcolor: #103E2C !important;
+              filter: none !important;
+            }
+            .talk-message-group:not(.me) .talk-message,
+            .talk-message-group:not(.me) .bubble,
+            .message-content:not(.right) {
+              background-color: #242626 !important;
+              --darkreader-inline-bgcolor: #242626 !important;
+              color: #e9edef !important;
+              filter: none !important;
+              background-image: none !important;
+            }
+            .talk-message-group:not(.me) .talk-reply-container,
+            .talk-message-group:not(.me) .talk-reply-body {
+              background-color: #1D1E1E !important;
+              --darkreader-inline-bgcolor: #1D1E1E !important;
+              filter: none !important;
+            }
+            /* Protege mídias e anexos */
             .talk-message-group img,
             .talk-message-group video,
             .talk-message-group canvas,
             .talk-message-group picture,
-            .talk-message-group [class*="attachment"] img,
-            .talk-message-group [class*="attachment"] video,
-            .talk-message-group [class*="media"] img,
-            .talk-message-group [class*="media"] video,
+            .talk-message-group [class*="attachment"],
+            .talk-message-group [class*="media"],
             .talk-message-group [class*="thumbnail"],
-            .talk-message-group [class*="preview"] img,
             #talk-panel img:not([src*="logo.png"]),
             #talk-panel video,
             #talk-panel canvas {
-                filter: none !important;
-                opacity: 1 !important;
-                mix-blend-mode: normal !important;
+              filter: none !important;
+              opacity: 1 !important;
+              mix-blend-mode: normal !important;
             }
+            /* Protege checkmarks de leitura */
             .talk-message-info svg,
             .talk-message-info img,
             .talk-message-info i,
             .talk-message-info [class*="check"],
             .talk-message-info [class*="status"],
-            .talk-message-status svg,
-            .talk-message-status img,
+            .talk-message-status,
             [class*="msg-check"],
-            [class*="message-check"],
             [class*="double-check"] {
-                filter: none !important;
-                opacity: 1 !important;
+              filter: none !important;
+              opacity: 1 !important;
             }
-            .talk-message-group.me .talk-message,
-            .talk-message-group.me .bubble,
-            .message-content.right {
-                background-color: #144D37 !important;
-            }
-            .talk-message-group:not(.me) .talk-message,
-            .talk-message-group:not(.me) .bubble,
-            .message-content:not(.right) {
-                background-color: #242626 !important;
-            }
-        `;
+          `
+      });
+
+      // Injeta CSS fix que sobrescreve as CSS variables inline do DarkReader
+      const injectFixCSS = () => {
+        if (document.getElementById('ce-darkreader-fix')) return;
+        const drFixStyle = document.createElement('style');
+        drFixStyle.id = 'ce-darkreader-fix';
+        drFixStyle.className = 'darkreader darkreader--ignore';
+        drFixStyle.textContent = `
+              /* Força navbar neutra escura bloqueando DarkReader inline */
+              #navbar, #navbar.navbar-default, .navbar.navbar-default,
+              #navbar-container, .navbar-container {
+                  background-color: #121212 !important;
+                  --darkreader-inline-bgcolor: #121212 !important;
+                  border-color: #1e1e1e !important;
+                  --darkreader-inline-border-bottom: #1e1e1e !important;
+              }
+              /* Força cores exatas via CSS Variables com Super Especificidade */
+              html body #wrapper #talk-panel .talk-message-group.me .talk-message,
+              html body #wrapper #talk-panel .talk-message-group.me .bubble,
+              html body #wrapper #talk-panel .message-content.right,
+              html body .talk-message-group.me .talk-message {
+                  background-color: #144D37 !important;
+                  --darkreader-inline-bgcolor: #144D37 !important;
+                  background-image: none !important;
+                  filter: none !important;
+                  mix-blend-mode: normal !important;
+              }
+              html body #wrapper #talk-panel .talk-message-group.me .talk-reply-container,
+              html body #wrapper #talk-panel .talk-message-group.me .talk-message-reply,
+              html body #wrapper #talk-panel .talk-message-group.me .talk-reply-body {
+                  background-color: #103E2C !important;
+                  --darkreader-inline-bgcolor: #103E2C !important;
+                  filter: none !important;
+                  mix-blend-mode: normal !important;
+              }
+              html body #wrapper #talk-panel .talk-message-group:not(.me) .talk-message,
+              html body #wrapper #talk-panel .talk-message-group:not(.me) .bubble,
+              html body #wrapper #talk-panel .message-content:not(.right),
+              html body .talk-message-group:not(.me) .talk-message {
+                  background-color: #242626 !important;
+                  --darkreader-inline-bgcolor: #242626 !important;
+                  background-image: none !important;
+                  filter: none !important;
+                  mix-blend-mode: normal !important;
+              }
+              html body #wrapper #talk-panel .talk-message-group:not(.me) .talk-reply-container,
+              html body #wrapper #talk-panel .talk-message-group:not(.me) .talk-message-reply,
+              html body #wrapper #talk-panel .talk-message-group:not(.me) .talk-reply-body {
+                  background-color: #1D1E1E !important;
+                  --darkreader-inline-bgcolor: #1D1E1E !important;
+                  filter: none !important;
+                  mix-blend-mode: normal !important;
+              }
+              /* Protege mídias e checkmarks */
+              .talk-message-group img,
+              .talk-message-group video,
+              .talk-message-group canvas,
+              .talk-message-group picture,
+              .talk-message-group [class*="attachment"] img,
+              .talk-message-group [class*="media"] img,
+              .talk-message-group [class*="thumbnail"],
+              #talk-panel img:not([src*="logo.png"]),
+              #talk-panel video,
+              #talk-panel canvas {
+                  filter: none !important;
+                  opacity: 1 !important;
+                  mix-blend-mode: normal !important;
+              }
+              .talk-message-info svg,
+              .talk-message-info img,
+              .talk-message-info i,
+              .talk-message-info [class*="check"],
+              .talk-message-info [class*="status"],
+              .talk-message-status svg,
+              .talk-message-status img,
+              [class*="msg-check"],
+              [class*="message-check"],
+              [class*="double-check"] {
+                  filter: none !important;
+                  opacity: 1 !important;
+              }
+          `;
         const target = document.head || document.documentElement;
         target.appendChild(drFixStyle);
       };
       injectFixCSS();
 
-      // Remove CSS inline indevido do AceAdmin (aguarda body existir)
-      const initNavbarFix = () => {
-        const fixNavbar = () => {
-          const nav = document.getElementById('navbar');
-          if (nav) {
-            nav.style.removeProperty('background-color');
-            nav.style.setProperty('background-color', '#0b141a', 'important');
+      // Força as cores corretas nos balões via JS (evitando recursão infinita e garantindo fidelidade)
+      const forceBubbleColors = () => {
+        const colorMap = [
+          { sel: '.talk-message-group.me .talk-message, .talk-message-group.me .bubble, .message-content.right, [class*="sent"]', bg: '#144D37', rgb: 'rgb(20, 77, 55)' },
+          { sel: '.talk-message-group.me .talk-reply-container, .talk-message-group.me .talk-reply-body, .talk-message-group.me .talk-message-reply, .talk-message-group.me [class*="reply"]', bg: '#103E2C', rgb: 'rgb(16, 62, 44)' },
+          { sel: '.talk-message-group:not(.me) .talk-message, .talk-message-group:not(.me) .bubble, .message-content:not(.right)', bg: '#242626', rgb: 'rgb(36, 38, 38)' },
+          { sel: '.talk-message-group:not(.me) .talk-reply-container, .talk-message-group:not(.me) .talk-reply-body, .talk-message-group:not(.me) .talk-message-reply, .talk-message-group:not(.me) [class*="reply"]', bg: '#1D1E1E', rgb: 'rgb(29, 30, 30)' }
+        ];
+        colorMap.forEach(({ sel, bg, rgb }) => {
+          document.querySelectorAll(sel).forEach(el => {
+            const currentBG = window.getComputedStyle(el).backgroundColor;
+            // Comparação normalizada (remove espaços e ignora alpha se 1)
+            const normBG = currentBG.replace(/\s/g, '').replace('rgba', 'rgb').replace(',1)', ')');
+            const normTarget = rgb.replace(/\s/g, '');
+            
+            if (normBG !== normTarget && currentBG !== bg) {
+                el.style.setProperty('background-color', bg, 'important');
+                el.setAttribute('data-darkreader-inline-bgcolor', bg);
+                el.style.setProperty('--darkreader-inline-bgcolor', bg, 'important');
+            }
+            if (el.style.backgroundImage !== 'none') {
+                el.style.setProperty('background-image', 'none', 'important');
+                el.style.setProperty('--darkreader-inline-bgimage', 'none', 'important');
+            }
+            if (window.getComputedStyle(el).filter !== 'none' || window.getComputedStyle(el).mixBlendMode !== 'normal') {
+                el.style.setProperty('filter', 'none', 'important');
+                el.style.setProperty('mix-blend-mode', 'normal', 'important');
+            }
+          });
+        });
+        // Fix navbar para neutro
+        const nav = document.getElementById('navbar');
+        if (nav) {
+          const navBG = window.getComputedStyle(nav).backgroundColor;
+          if (navBG !== 'rgb(18, 18, 18)' && navBG !== '#121212') {
+              nav.style.setProperty('background-color', '#121212', 'important');
+              nav.style.setProperty('--darkreader-inline-bgcolor', '#121212', 'important');
+              nav.setAttribute('data-darkreader-inline-bgcolor', '#121212');
           }
-        };
-        fixNavbar();
-        const observer = new MutationObserver(fixNavbar);
-        observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
+          if (window.getComputedStyle(nav).filter !== 'none') {
+              nav.style.setProperty('filter', 'none', 'important');
+          }
+        }
       };
-      if (document.body) {
-        initNavbarFix();
-      } else {
-        document.addEventListener('DOMContentLoaded', initNavbarFix);
-      }
+
+      // Observer que monitora mudanças do DarkReader e reaplica as cores
+      const startBubbleObserver = () => {
+        if (!document.body) {
+          document.addEventListener('DOMContentLoaded', startBubbleObserver);
+          return;
+        }
+        forceBubbleColors();
+        const observer = new MutationObserver((mutations) => {
+          // Verifica se as mutações são nossas ou do DarkReader
+          // Para simplificar e ser robusto, apenas rodamos se houver mudanças relevantes
+          forceBubbleColors();
+        });
+
+        observer.observe(document.body, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ['style', 'data-darkreader-inline-bgcolor', 'class']
+        });
+
+        // Fail-safe periódico leve
+        setInterval(forceBubbleColors, 2000);
+      };
+      startBubbleObserver();
     };
 
     // Aguarda o head existir antes de tentar carregar o DarkReader
@@ -635,10 +728,10 @@
       }
 
       prompt += `Gere um relato CURTO, DIRETO e OBJETIVO do atendimento, em um único parágrafo, sem o uso de markdown, tópicos ou títulos. O relato deve ir direto ao ponto e ser técnico com as alterações ou ações do técnico/atendente.
-      MUITO IMPORTANTE: Escreva o relato na **PRIMEIRA PESSOA DO SINGULAR ("eu fiz", "verifiquei", "orientei")**, pois este texto será copiado e colado pelo atendente (você) no sistema da empresa. Nunca use terceira pessoa como "o atendente fez".
-      Não precisa falar o nome do cliente ou citar o nome dele(a), preferivelmente comece com gênero correto "O/A cliente...". Exemplo do formato exato que eu desejo: "Cliente solicitou troca de senha, fiz a alteração da senha dela e informei sobre ser Case Sensitive, ela entendeu e confirmou. Posteriormente disse que iria testar em casa, e o atendimento foi encerrado."
-      Escreva de forma fluida. Se o atendente forneceu "Anotações Vitais", use-as como o FATO PRINCIPAL da sua resposta; o histórico de chat serve APENAS como contexto secundário.
-      INSTRUÇÃO ADICIONAL: JAMAIS diga que "o atendimento foi transferido", "passei para um humano", "transferi para o suporte" ou seja excessivamente literal sobre os botões/sistemas do chat. Concentre-se no RELATO TÉCNICO do problema e da resolução aplicados.`;
+        MUITO IMPORTANTE: Escreva o relato na **PRIMEIRA PESSOA DO SINGULAR ("eu fiz", "verifiquei", "orientei")**, pois este texto será copiado e colado pelo atendente (você) no sistema da empresa. Nunca use terceira pessoa como "o atendente fez".
+        Não precisa falar o nome do cliente ou citar o nome dele(a), preferivelmente comece com gênero correto "O/A cliente...". Exemplo do formato exato que eu desejo: "Cliente solicitou troca de senha, fiz a alteração da senha dela e informei sobre ser Case Sensitive, ela entendeu e confirmou. Posteriormente disse que iria testar em casa, e o atendimento foi encerrado."
+        Escreva de forma fluida. Se o atendente forneceu "Anotações Vitais", use-as como o FATO PRINCIPAL da sua resposta; o histórico de chat serve APENAS como contexto secundário.
+        INSTRUÇÃO ADICIONAL: JAMAIS diga que "o atendimento foi transferido", "passei para um humano", "transferi para o suporte" ou seja excessivamente literal sobre os botões/sistemas do chat. Concentre-se no RELATO TÉCNICO do problema e da resolução aplicados.`;
 
       // Separa o formato provedor:modelo
       const [provider, ...modelParts] = providerModel.split(':');
@@ -1030,183 +1123,183 @@
       const style = document.createElement('style');
       style.id = 'ce-panel-styles';
       style.textContent = `
-              @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-              #${P} * { box-sizing:border-box; }
-              #${P} button {
-                background:#1D6CAE; color:#fff;
-                border:none; padding:7px 14px; border-radius:0; cursor:pointer;
-                font-weight:600; font-size:13px; letter-spacing:0.2px;
-                transition:all 0.2s; box-shadow:0 1px 3px rgba(0,0,0,0.15);
-              }
-              #${P} button:hover { background:#15548a; transform:translateY(-1px); }
-              #${P} button:active { transform:scale(0.98); }
-              #${P} button.danger-btn {
-                background:#ED5565; padding:4px 9px;
-                box-shadow:0 1px 3px rgba(237,85,101,0.3);
-              }
-              #${P} button.danger-btn:hover { background:#d44d5c; }
-              #${P} button.secondary-btn {
-                background:#fff; border:1px solid #d4dfe3; color:#1D6CAE;
-                box-shadow:none; font-weight:500;
-              }
-              #${P} button.secondary-btn:hover { background:#f5f5f5; color:#15548a; }
-              #${P} input, #${P} textarea, #${P} select {
-                background:#fff; border:1px solid #d5d5d5;
-                border-radius:0; padding:9px 12px; font-family:inherit; font-size:13px;
-                color:#262626; transition:all 0.2s;
-              }
-              #${P} select {
-                height:auto; line-height:1.4;
-                text-overflow:ellipsis; white-space:nowrap;
-                overflow:hidden; appearance:auto;
-                padding-right:28px;
-              }
-              #${P} select option { background:#fff; color:#393939; }
-              #${P} hr { border:0; height:1px; background:#d4dfe3; margin:18px 0; }
-              #${P} h3 { margin-top:0; color:#2679B5; font-size:18px; font-weight:400; font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; }
-              #${P} .section-title {
-                color:#2f4050; font-size:12px; font-weight:700; text-transform:uppercase;
-                letter-spacing:0.8px; margin-bottom:8px; display:flex; align-items:center; gap:6px;
-              }
-              #${P} .section-card {
-                background:#fff; border:1px solid #eee;
-                border-radius:0; /* Square cards */
-                padding:12px 14px; margin-bottom:12px;
-                box-shadow:2px 2px 3px rgba(0,0,0,0.05);
-                position:relative;
-              }
-              #${P} .panel-content-scroll {
-                flex: 1; padding: 20px 22px; overflow-y: auto;
-              }
-              #${P} .panel-header {
-                background:#fff; height:65px; min-height:65px;
-                padding:0 20px; display:flex; align-items:center;
-                justify-content:space-between; border-bottom:1px solid rgba(0,0,0,0.05);
-                box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-              }
-              #${P} ul { margin:0; padding:0; list-style:none; }
-              #${P} li {
-                background:#f9f9f9; border:1px solid #eee;
-                border-radius:0; padding:10px 12px; margin-bottom:6px;
-              }
-              .ce-timer-active-button { border-left: 4px solid #1D6CAE !important; background-color: rgba(29, 108, 174, 0.05) !important; transition: all 0.3s ease; }
-              .ce-timer-completed-button { border-left: 4px solid #ED5565 !important; background-color: rgba(237, 85, 101, 0.08) !important; animation: ce-pulse-bg 2s infinite; }
-              @keyframes ce-pulse-bg { 0% { background-color: rgba(237, 85, 101, 0.05); } 50% { background-color: rgba(237, 85, 101, 0.15); } 100% { background-color: rgba(237, 85, 101, 0.05); } }
-              .talk-group { overflow-x: hidden !important; overflow-y: auto !important; scrollbar-width: none !important; }
-              .talk-group::-webkit-scrollbar { display: none !important; }
-              .ce-tma-border-overlay {
-                position: absolute !important; inset: -3px !important;
-                border-radius: 0 !important; overflow: hidden !important;
-                pointer-events: none !important; z-index: 10 !important;
-                padding: 3px !important;
-                -webkit-mask:
-                  linear-gradient(#fff 0 0) content-box,
-                  linear-gradient(#fff 0 0);
-                -webkit-mask-composite: xor;
-                mask-composite: exclude;
-              }
-              .ce-tma-border-spinner {
-                position: absolute !important;
-                top: 50% !important; left: 50% !important;
-                width: 300% !important; height: 300% !important;
-              }
-              .ce-tma-border-spinner.warning {
-                background: conic-gradient(transparent 0deg, transparent 160deg, #ffc10788 180deg, #ffc107 230deg, #ffab00 270deg, #ff9800 310deg, #ff980088 330deg, transparent 340deg, transparent 360deg);
-                animation: ce-spin-ccw 2.5s linear infinite;
-              }
-              .ce-tma-border-spinner.critical {
-                background: conic-gradient(transparent 0deg, transparent 160deg, #ff174488 180deg, #ff1744 230deg, #d50000 270deg, #b71c1c 310deg, #b71c1c88 330deg, transparent 340deg, transparent 360deg);
-                animation: ce-spin-ccw 1.5s linear infinite;
-              }
-              @keyframes ce-spin-ccw {
-                from { transform: translate(-50%, -50%) rotate(360deg); }
-                to { transform: translate(-50%, -50%) rotate(0deg); }
-              }
+                @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+                #${P} * { box-sizing:border-box; }
+                #${P} button {
+                  background:#1D6CAE; color:#fff;
+                  border:none; padding:7px 14px; border-radius:0; cursor:pointer;
+                  font-weight:600; font-size:13px; letter-spacing:0.2px;
+                  transition:all 0.2s; box-shadow:0 1px 3px rgba(0,0,0,0.15);
+                }
+                #${P} button:hover { background:#15548a; transform:translateY(-1px); }
+                #${P} button:active { transform:scale(0.98); }
+                #${P} button.danger-btn {
+                  background:#ED5565; padding:4px 9px;
+                  box-shadow:0 1px 3px rgba(237,85,101,0.3);
+                }
+                #${P} button.danger-btn:hover { background:#d44d5c; }
+                #${P} button.secondary-btn {
+                  background:#fff; border:1px solid #d4dfe3; color:#1D6CAE;
+                  box-shadow:none; font-weight:500;
+                }
+                #${P} button.secondary-btn:hover { background:#f5f5f5; color:#15548a; }
+                #${P} input, #${P} textarea, #${P} select {
+                  background:#fff; border:1px solid #d5d5d5;
+                  border-radius:0; padding:9px 12px; font-family:inherit; font-size:13px;
+                  color:#262626; transition:all 0.2s;
+                }
+                #${P} select {
+                  height:auto; line-height:1.4;
+                  text-overflow:ellipsis; white-space:nowrap;
+                  overflow:hidden; appearance:auto;
+                  padding-right:28px;
+                }
+                #${P} select option { background:#fff; color:#393939; }
+                #${P} hr { border:0; height:1px; background:#d4dfe3; margin:18px 0; }
+                #${P} h3 { margin-top:0; color:#2679B5; font-size:18px; font-weight:400; font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; }
+                #${P} .section-title {
+                  color:#2f4050; font-size:12px; font-weight:700; text-transform:uppercase;
+                  letter-spacing:0.8px; margin-bottom:8px; display:flex; align-items:center; gap:6px;
+                }
+                #${P} .section-card {
+                  background:#fff; border:1px solid #eee;
+                  border-radius:0; /* Square cards */
+                  padding:12px 14px; margin-bottom:12px;
+                  box-shadow:2px 2px 3px rgba(0,0,0,0.05);
+                  position:relative;
+                }
+                #${P} .panel-content-scroll {
+                  flex: 1; padding: 20px 22px; overflow-y: auto;
+                }
+                #${P} .panel-header {
+                  background:#fff; height:65px; min-height:65px;
+                  padding:0 20px; display:flex; align-items:center;
+                  justify-content:space-between; border-bottom:1px solid rgba(0,0,0,0.05);
+                  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+                }
+                #${P} ul { margin:0; padding:0; list-style:none; }
+                #${P} li {
+                  background:#f9f9f9; border:1px solid #eee;
+                  border-radius:0; padding:10px 12px; margin-bottom:6px;
+                }
+                .ce-timer-active-button { border-left: 4px solid #1D6CAE !important; background-color: rgba(29, 108, 174, 0.05) !important; transition: all 0.3s ease; }
+                .ce-timer-completed-button { border-left: 4px solid #ED5565 !important; background-color: rgba(237, 85, 101, 0.08) !important; animation: ce-pulse-bg 2s infinite; }
+                @keyframes ce-pulse-bg { 0% { background-color: rgba(237, 85, 101, 0.05); } 50% { background-color: rgba(237, 85, 101, 0.15); } 100% { background-color: rgba(237, 85, 101, 0.05); } }
+                .talk-group { overflow-x: hidden !important; overflow-y: auto !important; scrollbar-width: none !important; }
+                .talk-group::-webkit-scrollbar { display: none !important; }
+                .ce-tma-border-overlay {
+                  position: absolute !important; inset: -3px !important;
+                  border-radius: 0 !important; overflow: hidden !important;
+                  pointer-events: none !important; z-index: 10 !important;
+                  padding: 3px !important;
+                  -webkit-mask:
+                    linear-gradient(#fff 0 0) content-box,
+                    linear-gradient(#fff 0 0);
+                  -webkit-mask-composite: xor;
+                  mask-composite: exclude;
+                }
+                .ce-tma-border-spinner {
+                  position: absolute !important;
+                  top: 50% !important; left: 50% !important;
+                  width: 300% !important; height: 300% !important;
+                }
+                .ce-tma-border-spinner.warning {
+                  background: conic-gradient(transparent 0deg, transparent 160deg, #ffc10788 180deg, #ffc107 230deg, #ffab00 270deg, #ff9800 310deg, #ff980088 330deg, transparent 340deg, transparent 360deg);
+                  animation: ce-spin-ccw 2.5s linear infinite;
+                }
+                .ce-tma-border-spinner.critical {
+                  background: conic-gradient(transparent 0deg, transparent 160deg, #ff174488 180deg, #ff1744 230deg, #d50000 270deg, #b71c1c 310deg, #b71c1c88 330deg, transparent 340deg, transparent 360deg);
+                  animation: ce-spin-ccw 1.5s linear infinite;
+                }
+                @keyframes ce-spin-ccw {
+                  from { transform: translate(-50%, -50%) rotate(360deg); }
+                  to { transform: translate(-50%, -50%) rotate(0deg); }
+                }
 
-              .ce-alert-icon {
-                position: absolute;
-                left: 20px;
-                top: 36px;
-                background: #fff;
-                border-radius: 0;
-                font-size: 14px;
-                line-height: 1;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-                z-index: 10;
-              }
+                .ce-alert-icon {
+                  position: absolute;
+                  left: 20px;
+                  top: 36px;
+                  background: #fff;
+                  border-radius: 0;
+                  font-size: 14px;
+                  line-height: 1;
+                  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+                  z-index: 10;
+                }
 
-              #${P} .settings-overlay {
-                position:absolute; inset:0; background:#ffffff;
-                z-index:10; padding:28px 22px; overflow:visible; overflow-y:auto;
-                animation:ceFadeIn 0.2s ease;
-              }
-              @keyframes ceFadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-              @keyframes cePulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-              .ce-timer-badge {
-                display:inline-flex; align-items:center; gap:3px; padding:3px 8px;
-                border-radius:0; font-size:11px; font-weight:600; font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
-                margin-left:6px; vertical-align:middle; line-height:1; box-shadow:0 1px 2px rgba(0,0,0,0.1);
-              }
-              .ce-timer-badge.active { background:#1D6CAE; color:#fff; border:1px solid #15548a; }
-              .ce-timer-badge.critical { background:#ED5565; color:#fff; border:1px solid #d44d5c; }
-              .ce-timer-badge.completed {
-                background:#f89406; color:#fff; border:1px solid #c87604;
-                cursor:pointer; animation:cePulse 1.5s ease infinite;
-              }
-              #${CONFIG.DOM_IDS.RESIZE_HANDLE} {
-                position:fixed; top:0; width:6px; height:100%; cursor:col-resize;
-                z-index:1; background:transparent;
-                transition: background 0.15s;
-              }
-              #${CONFIG.DOM_IDS.RESIZE_HANDLE}:hover,
-              #${CONFIG.DOM_IDS.RESIZE_HANDLE}.active {
-                background:rgba(29,108,174,0.35);
-              }
-              #${P} .update-btn {
-                background: #28a745 !important;
-                color: #fff !important;
-                border: none;
-                padding: 5px 10px;
-                font-size: 11px;
-                font-weight: 700;
-                border-radius: 4px;
-                cursor: pointer;
-                animation: ce-pulse-green 2s infinite;
-                display: none;
-                align-items: center;
-                gap: 4px;
-                transition: all 0.2s;
-              }
-              #${P} .update-btn:hover { background: #218838 !important; transform: translateY(-1px); }
-              @keyframes ce-pulse-green {
-                0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.4); }
-                70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
-                100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
-              }
-              .ce-transcribe-btn {
-                display: inline-flex !important; align-items: center; gap: 4px;
-                background: none !important; border: 1px solid #d1d5db !important;
-                color: #6b7280 !important; font-size: 11px !important;
-                padding: 4px 10px !important; margin-top: 6px;
-                cursor: pointer; transition: all 0.2s;
-                font-family: inherit; box-shadow: none !important;
-                border-radius: 4px !important;
-              }
-              .ce-transcribe-btn:hover {
-                background: #f3f4f6 !important; color: #374151 !important;
-                border-color: #9ca3af !important; transform: none !important;
-              }
-              .ce-transcribe-btn:disabled { opacity: 0.7; cursor: wait; }
-              .ce-transcription-text {
-                color: #6b7280; font-size: 12px; font-style: italic;
-                padding: 6px 0 2px; margin-top: 4px;
-                border-top: 1px solid #e5e7eb; line-height: 1.4;
-              }
-              @keyframes ce-spin {
-                from { transform: rotate(0deg); }
-                to { transform: rotate(360deg); }
-              }
-            `;
+                #${P} .settings-overlay {
+                  position:absolute; inset:0; background:#ffffff;
+                  z-index:10; padding:28px 22px; overflow:visible; overflow-y:auto;
+                  animation:ceFadeIn 0.2s ease;
+                }
+                @keyframes ceFadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+                @keyframes cePulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+                .ce-timer-badge {
+                  display:inline-flex; align-items:center; gap:3px; padding:3px 8px;
+                  border-radius:0; font-size:11px; font-weight:600; font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
+                  margin-left:6px; vertical-align:middle; line-height:1; box-shadow:0 1px 2px rgba(0,0,0,0.1);
+                }
+                .ce-timer-badge.active { background:#1D6CAE; color:#fff; border:1px solid #15548a; }
+                .ce-timer-badge.critical { background:#ED5565; color:#fff; border:1px solid #d44d5c; }
+                .ce-timer-badge.completed {
+                  background:#f89406; color:#fff; border:1px solid #c87604;
+                  cursor:pointer; animation:cePulse 1.5s ease infinite;
+                }
+                #${CONFIG.DOM_IDS.RESIZE_HANDLE} {
+                  position:fixed; top:0; width:6px; height:100%; cursor:col-resize;
+                  z-index:1; background:transparent;
+                  transition: background 0.15s;
+                }
+                #${CONFIG.DOM_IDS.RESIZE_HANDLE}:hover,
+                #${CONFIG.DOM_IDS.RESIZE_HANDLE}.active {
+                  background:rgba(29,108,174,0.35);
+                }
+                #${P} .update-btn {
+                  background: #28a745 !important;
+                  color: #fff !important;
+                  border: none;
+                  padding: 5px 10px;
+                  font-size: 11px;
+                  font-weight: 700;
+                  border-radius: 4px;
+                  cursor: pointer;
+                  animation: ce-pulse-green 2s infinite;
+                  display: none;
+                  align-items: center;
+                  gap: 4px;
+                  transition: all 0.2s;
+                }
+                #${P} .update-btn:hover { background: #218838 !important; transform: translateY(-1px); }
+                @keyframes ce-pulse-green {
+                  0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.4); }
+                  70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
+                  100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+                }
+                .ce-transcribe-btn {
+                  display: inline-flex !important; align-items: center; gap: 4px;
+                  background: none !important; border: 1px solid #d1d5db !important;
+                  color: #6b7280 !important; font-size: 11px !important;
+                  padding: 4px 10px !important; margin-top: 6px;
+                  cursor: pointer; transition: all 0.2s;
+                  font-family: inherit; box-shadow: none !important;
+                  border-radius: 4px !important;
+                }
+                .ce-transcribe-btn:hover {
+                  background: #f3f4f6 !important; color: #374151 !important;
+                  border-color: #9ca3af !important; transform: none !important;
+                }
+                .ce-transcribe-btn:disabled { opacity: 0.7; cursor: wait; }
+                .ce-transcription-text {
+                  color: #6b7280; font-size: 12px; font-style: italic;
+                  padding: 6px 0 2px; margin-top: 4px;
+                  border-top: 1px solid #e5e7eb; line-height: 1.4;
+                }
+                @keyframes ce-spin {
+                  from { transform: rotate(0deg); }
+                  to { transform: rotate(360deg); }
+                }
+              `;
       document.head.appendChild(style);
 
       const header = document.createElement('div');
@@ -1361,23 +1454,23 @@
       lbl1.textContent = 'Modelo de I.A.';
       const sel = document.createElement('select');
       sel.innerHTML = `
-        <optgroup label="Gemini (Gratuito)">
-          <option value="gemini:gemini-3.1-flash-lite-preview">Gemini 3.1 Flash Lite Preview</option>
-        </optgroup>
-        <optgroup label="Groq (Gratuito — 14.400 req/dia)">
-          <option value="groq:llama-3.3-70b-versatile">Llama 3.3 70B Versatile</option>
-          <option value="groq:llama-3.1-8b-instant">Llama 3.1 8B Instant</option>
-          <option value="groq:qwen-2.5-32b">Qwen 2.5 32B</option>
-        </optgroup>
-        <optgroup label="OpenRouter (Gratuito — Limites Menores)">
-          <option value="openrouter:openrouter/free">Router Inteligente (Melhor Modelo Livre)</option>
-          <option value="openrouter:meta-llama/llama-3.2-3b-instruct:free">Llama 3.2 3B Instruct</option>
-          <option value="openrouter:qwen/qwen-2.5-coder-32b-instruct:free">Qwen 2.5 Coder 32B</option>
-        </optgroup>
-        <optgroup label="OpenAI (Pago)">
-          <option value="chatgpt:gpt-3.5-turbo">GPT-3.5 Turbo</option>
-        </optgroup>
-      `;
+          <optgroup label="Gemini (Gratuito)">
+            <option value="gemini:gemini-3.1-flash-lite-preview">Gemini 3.1 Flash Lite Preview</option>
+          </optgroup>
+          <optgroup label="Groq (Gratuito — 14.400 req/dia)">
+            <option value="groq:llama-3.3-70b-versatile">Llama 3.3 70B Versatile</option>
+            <option value="groq:llama-3.1-8b-instant">Llama 3.1 8B Instant</option>
+            <option value="groq:qwen-2.5-32b">Qwen 2.5 32B</option>
+          </optgroup>
+          <optgroup label="OpenRouter (Gratuito — Limites Menores)">
+            <option value="openrouter:openrouter/free">Router Inteligente (Melhor Modelo Livre)</option>
+            <option value="openrouter:meta-llama/llama-3.2-3b-instruct:free">Llama 3.2 3B Instruct</option>
+            <option value="openrouter:qwen/qwen-2.5-coder-32b-instruct:free">Qwen 2.5 Coder 32B</option>
+          </optgroup>
+          <optgroup label="OpenAI (Pago)">
+            <option value="chatgpt:gpt-3.5-turbo">GPT-3.5 Turbo</option>
+          </optgroup>
+        `;
       const savedProvider = this.storage.obter(CONFIG.KEYS.AI_PROVIDER, 'gemini:gemini-3.1-flash-lite-preview');
       sel.value = savedProvider;
       // Fallback caso valor salvo não corresponda a nenhuma opção
@@ -1998,13 +2091,13 @@
         document.head.appendChild(styleEl);
       }
       styleEl.textContent = `
-              #talk-panel,
-              .talk-panel,
-              .talk-commands {
-                width: calc(100% - ${width}px) !important;
-                transition: width 0.15s ease !important;
-              }
-            `;
+                #talk-panel,
+                .talk-panel,
+                .talk-commands {
+                  width: calc(100% - ${width}px) !important;
+                  transition: width 0.15s ease !important;
+                }
+              `;
     }
 
     _limparModoChat() {
