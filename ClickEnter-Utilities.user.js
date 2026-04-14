@@ -93,24 +93,86 @@
         img[src*="logo.png"] {
             content: url('https://raw.githubusercontent.com/inaciodinucci/Userscript-PipeRun-ClickEnter/refs/heads/main/icons/logo.png') !important;
         }
+
+        /* Bolha do atendente (Eu) */
         .talk-message-group.me .talk-message, .talk-message-group.me .bubble, .message-content.right, [class*="sent"] { 
-            background-color: #005c4b !important;
+            background-color: #144D37 !important;
             color: #e9edef !important; 
-            border: 1px solid #02826a !important;
+            border: 1px solid #1a5f43 !important;
             box-shadow: 0 1px 0.5px rgba(11,20,26,.13) !important;
         }
-        .talk-message-group:not(.me) .talk-message, .talk-message-group:not(.me) .bubble, .talk-reply-container, .message-content:not(.right) { 
-            background-color: #343e45 !important;
+        /* Fundo de mensagem respondida (Eu) */
+        .talk-message-group.me .talk-reply-container,
+        .talk-message-group.me .talk-message-reply,
+        .talk-message-group.me .talk-reply-body { 
+            background-color: #103E2C !important;
+            border-left: 3px solid #1a5f43 !important;
+        }
+
+        /* Bolha do cliente */
+        .talk-message-group:not(.me) .talk-message, .talk-message-group:not(.me) .bubble, .message-content:not(.right) { 
+            background-color: #242626 !important;
             color: #e9edef !important; 
-            border: 1px solid #4b5963 !important;
+            border: 1px solid #3a3c3c !important;
             box-shadow: 0 1px 0.5px rgba(11,20,26,.13) !important;
         }
-        .talk-reply-container *, .talk-message-group *, .talk-customer-name, strong, b, h1, h2, h3, h4, h5, h6 {
+        /* Fundo de mensagem respondida (Cliente) */
+        .talk-message-group:not(.me) .talk-reply-container,
+        .talk-message-group:not(.me) .talk-message-reply,
+        .talk-message-group:not(.me) .talk-reply-body { 
+            background-color: #1D1E1E !important;
+            border-left: 3px solid #3a3c3c !important;
+        }
+
+        /* Texto legível sem interferir em mídias */
+        .talk-reply-container *, .talk-message-text, .talk-message-group .talk-message-text *, 
+        .talk-customer-name, strong, b, h1, h2, h3, h4, h5, h6 {
             opacity: 1 !important; 
             color: #e9edef !important;
             text-shadow: none !important;
             -webkit-font-smoothing: antialiased !important;
         }
+
+        /* Protege checkmarks / ícones de status de leitura */
+        .talk-message-info svg,
+        .talk-message-info img,
+        .talk-message-info i,
+        .talk-message-info .icon-check,
+        .talk-message-info [class*="check"],
+        .talk-message-info [class*="read"],
+        .talk-message-info [class*="delivered"],
+        .talk-message-info [class*="status"],
+        .talk-message-status,
+        .message-status,
+        [class*="msg-check"],
+        [class*="message-check"],
+        [class*="double-check"] {
+            filter: none !important;
+            opacity: 1 !important;
+            color: inherit !important;
+        }
+
+        /* Protege imagens, vídeos e anexos contra inversão de cor */
+        .talk-message-group img:not([src*="logo.png"]),
+        .talk-message-group video,
+        .talk-message-group canvas,
+        .talk-message-group picture,
+        .talk-message-group .attachment-image,
+        .talk-message-group .attachment-video,
+        .talk-message-group .attachment-file,
+        .talk-message-group [class*="attachment"],
+        .talk-message-group [class*="media"],
+        .talk-message-group [class*="thumbnail"],
+        .talk-message-group [class*="preview"],
+        .talk-message-group .file-preview,
+        #talk-panel img:not([src*="logo.png"]),
+        #talk-panel video,
+        #talk-panel canvas {
+            filter: none !important;
+            opacity: 1 !important;
+            mix-blend-mode: normal !important;
+        }
+
         .emojionearea, .talk-message-field {
             background-color: #202c33 !important;
             border: 1px solid #2a3942 !important;
@@ -132,13 +194,55 @@
                 mode: 1,
                 darkSchemeBackgroundColor: '#0b141a',
                 darkSchemeTextColor: '#e9edef',
-                selectionColor: '#005c4b'
+                selectionColor: '#144D37'
             }
         });
         
-        // Remove apenas CSS inline indevido do AceAdmin (não toca mais nas imagens)
+        // Injeta CSS que reverte a inversão do DarkReader em mídias e checkmarks
+        const drFixStyle = document.createElement('style');
+        drFixStyle.id = 'ce-darkreader-fix';
+        drFixStyle.textContent = `
+            /* Reverte inversão do DarkReader em imagens, vídeos e anexos do chat */
+            .talk-message-group img,
+            .talk-message-group video,
+            .talk-message-group canvas,
+            .talk-message-group picture,
+            .talk-message-group [class*="attachment"] img,
+            .talk-message-group [class*="attachment"] video,
+            .talk-message-group [class*="media"] img,
+            .talk-message-group [class*="media"] video,
+            .talk-message-group [class*="thumbnail"],
+            .talk-message-group [class*="preview"] img,
+            #talk-panel img:not([src*="logo.png"]),
+            #talk-panel video,
+            #talk-panel canvas {
+                filter: none !important;
+                opacity: 1 !important;
+                mix-blend-mode: normal !important;
+            }
+
+            /* Protege ícones de check/leitura do DarkReader */
+            .talk-message-info svg,
+            .talk-message-info img,
+            .talk-message-info i,
+            .talk-message-info [class*="check"],
+            .talk-message-info [class*="read"],
+            .talk-message-info [class*="status"],
+            .talk-message-info [class*="delivered"],
+            .talk-message-status svg,
+            .talk-message-status img,
+            [class*="msg-check"],
+            [class*="message-check"],
+            [class*="double-check"] {
+                filter: none !important;
+                opacity: 1 !important;
+            }
+        `;
+        document.head.appendChild(drFixStyle);
+
+        // Remove apenas CSS inline indevido do AceAdmin
         const observer = new MutationObserver(() => {
-            // Remove o inline style covarde da navbar do Ace Admin
+            // Remove o inline style da navbar do Ace Admin
             const nav = document.getElementById('navbar');
             if (nav && nav.style.backgroundColor) {
                 nav.style.removeProperty('background-color');
@@ -148,14 +252,14 @@
     };
 
     if (typeof DarkReader !== 'undefined') {
-        loadProfessionalDark();
+      loadProfessionalDark();
     } else {
-        // Carregamento dinâmico paralelo caso o Tampermonkey não dispare o @require imediatamente
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/darkreader@4.9.92/darkreader.min.js';
-        script.onload = loadProfessionalDark;
-        document.head = document.head || document.getElementsByTagName('head')[0];
-        if (document.head) document.head.appendChild(script);
+      // Carregamento dinâmico paralelo caso o Tampermonkey não dispare o @require imediatamente
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/darkreader@4.9.92/darkreader.min.js';
+      script.onload = loadProfessionalDark;
+      document.head = document.head || document.getElementsByTagName('head')[0];
+      if (document.head) document.head.appendChild(script);
     }
   }
   // =======================================
@@ -180,7 +284,7 @@
 
       for (const cliente in data) {
         const t = data[cliente];
-        
+
         if (t.viewed) {
           delete data[cliente];
           changed = true;
@@ -213,9 +317,9 @@
 
     _notificar(cliente, titulo) {
       if (window.Notification && Notification.permission !== 'granted') return;
-      
-      const msgAviso = (titulo && titulo.trim() !== '') 
-        ? `${titulo} (${cliente})` 
+
+      const msgAviso = (titulo && titulo.trim() !== '')
+        ? `${titulo} (${cliente})`
         : `O cronômetro configurado para ${cliente} encerrou.`;
 
       const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
