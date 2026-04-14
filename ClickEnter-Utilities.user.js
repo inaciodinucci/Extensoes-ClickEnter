@@ -16,12 +16,13 @@
 // @connect      api.groq.com
 // @connect      openrouter.ai
 // @connect      clickenter.cxm.pipe.run
+// @connect      raw.githubusercontent.com
 // ==/UserScript==
 
 (function () {
   'use strict';
 
-  console.log('Userscript carregado: ClickEnter Utilities v2');
+  console.log('Userscript carregado: ClickEnter Utilities');
 
   const CONFIG = {
     KEYS: {
@@ -84,6 +85,13 @@
     darkStyle.textContent = `
         html, body, #wrapper, #page-wrapper, .gray-bg, .wrapper-content { 
             background-color: #0b141a !important; 
+        }
+        #navbar, #navbar.navbar-default, .navbar.navbar-default {
+            background-color: #0b141a !important;
+            border-color: #1a2a33 !important;
+        }
+        #navbar-container, .navbar-container {
+            background-color: #0b141a !important;
         }
         #talk-panel { 
             background-color: #0b141a !important; 
@@ -195,14 +203,77 @@
           darkSchemeBackgroundColor: '#0b141a',
           darkSchemeTextColor: '#e9edef',
           selectionColor: '#144D37'
-        }
+        },
+        css: `
+          /* Navbar escura */
+          #navbar, #navbar.navbar-default, .navbar.navbar-default,
+          #navbar-container, .navbar-container {
+            background-color: #0b141a !important;
+            border-color: #1a2a33 !important;
+          }
+          /* Bolha do atendente (Eu) */
+          .talk-message-group.me .talk-message,
+          .talk-message-group.me .bubble,
+          .message-content.right,
+          [class*="sent"] {
+            background-color: #144D37 !important;
+            color: #e9edef !important;
+          }
+          /* Fundo de resposta (Eu) */
+          .talk-message-group.me .talk-reply-container,
+          .talk-message-group.me .talk-message-reply,
+          .talk-message-group.me .talk-reply-body {
+            background-color: #103E2C !important;
+          }
+          /* Bolha do cliente */
+          .talk-message-group:not(.me) .talk-message,
+          .talk-message-group:not(.me) .bubble,
+          .message-content:not(.right) {
+            background-color: #242626 !important;
+            color: #e9edef !important;
+          }
+          /* Fundo de resposta (Cliente) */
+          .talk-message-group:not(.me) .talk-reply-container,
+          .talk-message-group:not(.me) .talk-message-reply,
+          .talk-message-group:not(.me) .talk-reply-body {
+            background-color: #1D1E1E !important;
+          }
+          /* Protege mídias e anexos */
+          .talk-message-group img,
+          .talk-message-group video,
+          .talk-message-group canvas,
+          .talk-message-group picture,
+          .talk-message-group [class*="attachment"],
+          .talk-message-group [class*="media"],
+          .talk-message-group [class*="thumbnail"],
+          #talk-panel img:not([src*="logo.png"]),
+          #talk-panel video,
+          #talk-panel canvas {
+            filter: none !important;
+            opacity: 1 !important;
+            mix-blend-mode: normal !important;
+          }
+          /* Protege checkmarks de leitura */
+          .talk-message-info svg,
+          .talk-message-info img,
+          .talk-message-info i,
+          .talk-message-info [class*="check"],
+          .talk-message-info [class*="status"],
+          .talk-message-status,
+          [class*="msg-check"],
+          [class*="double-check"] {
+            filter: none !important;
+            opacity: 1 !important;
+          }
+        `
       });
 
-      // Injeta CSS que reverte a inversão do DarkReader em mídias e checkmarks
-      const drFixStyle = document.createElement('style');
-      drFixStyle.id = 'ce-darkreader-fix';
-      drFixStyle.textContent = `
-            /* Reverte inversão do DarkReader em imagens, vídeos e anexos do chat */
+      // Injeta CSS fix apenas quando o head existir
+      const injectFixCSS = () => {
+        if (document.getElementById('ce-darkreader-fix')) return;
+        const drFixStyle = document.createElement('style');
+        drFixStyle.id = 'ce-darkreader-fix';
+        drFixStyle.textContent = `
             .talk-message-group img,
             .talk-message-group video,
             .talk-message-group canvas,
@@ -220,15 +291,11 @@
                 opacity: 1 !important;
                 mix-blend-mode: normal !important;
             }
-
-            /* Protege ícones de check/leitura do DarkReader */
             .talk-message-info svg,
             .talk-message-info img,
             .talk-message-info i,
             .talk-message-info [class*="check"],
-            .talk-message-info [class*="read"],
             .talk-message-info [class*="status"],
-            .talk-message-info [class*="delivered"],
             .talk-message-status svg,
             .talk-message-status img,
             [class*="msg-check"],
@@ -237,8 +304,6 @@
                 filter: none !important;
                 opacity: 1 !important;
             }
-
-            /* Força as cores corretas dos balões sobre o DarkReader */
             .talk-message-group.me .talk-message,
             .talk-message-group.me .bubble,
             .message-content.right {
@@ -250,28 +315,64 @@
                 background-color: #242626 !important;
             }
         `;
-      document.head.appendChild(drFixStyle);
+        const target = document.head || document.documentElement;
+        target.appendChild(drFixStyle);
+      };
+      injectFixCSS();
 
-      // Remove apenas CSS inline indevido do AceAdmin
-      const observer = new MutationObserver(() => {
-        // Remove o inline style da navbar do Ace Admin
-        const nav = document.getElementById('navbar');
-        if (nav && nav.style.backgroundColor) {
-          nav.style.removeProperty('background-color');
-        }
-      });
-      observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
+      // Remove CSS inline indevido do AceAdmin (aguarda body existir)
+      const initNavbarFix = () => {
+        const fixNavbar = () => {
+          const nav = document.getElementById('navbar');
+          if (nav) {
+            nav.style.removeProperty('background-color');
+            nav.style.setProperty('background-color', '#0b141a', 'important');
+          }
+        };
+        fixNavbar();
+        const observer = new MutationObserver(fixNavbar);
+        observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
+      };
+      if (document.body) {
+        initNavbarFix();
+      } else {
+        document.addEventListener('DOMContentLoaded', initNavbarFix);
+      }
     };
 
-    if (typeof DarkReader !== 'undefined') {
-      loadProfessionalDark();
+    // Aguarda o head existir antes de tentar carregar o DarkReader
+    const waitForHead = (callback) => {
+      if (document.head) { callback(); return; }
+      const obs = new MutationObserver(() => {
+        if (document.head) { obs.disconnect(); callback(); }
+      });
+      obs.observe(document.documentElement, { childList: true });
+    };
+
+    // Tenta inicializar o DarkReader com retry automático
+    const initDarkReader = () => {
+      if (typeof DarkReader !== 'undefined') {
+        loadProfessionalDark();
+      } else {
+        waitForHead(() => {
+          const script = document.createElement('script');
+          script.src = 'https://cdn.jsdelivr.net/npm/darkreader@4.9.92/darkreader.min.js';
+          script.onload = loadProfessionalDark;
+          document.head.appendChild(script);
+        });
+      }
+    };
+
+    // Garante que o DarkReader é inicializado mesmo com timing ruim
+    if (document.readyState === 'loading') {
+      initDarkReader();
+      document.addEventListener('DOMContentLoaded', () => {
+        if (typeof DarkReader !== 'undefined' && !DarkReader.isEnabled()) {
+          loadProfessionalDark();
+        }
+      });
     } else {
-      // Carregamento dinâmico paralelo caso o Tampermonkey não dispare o @require imediatamente
-      const script = document.createElement('script');
-      script.src = 'https://cdn.jsdelivr.net/npm/darkreader@4.9.92/darkreader.min.js';
-      script.onload = loadProfessionalDark;
-      document.head = document.head || document.getElementsByTagName('head')[0];
-      if (document.head) document.head.appendChild(script);
+      initDarkReader();
     }
   }
   // =======================================
@@ -836,7 +937,7 @@
   class UpdateManager {
     constructor(currentVersion) {
       this.currentVersion = currentVersion;
-      this.updateUrl = 'https://raw.githubusercontent.com/inaciodinucci/Extensoes-ClickEnter/main/ClickEnter-Utilities.user.js';
+      this.updateUrl = 'https://raw.githubusercontent.com/inaciodinucci/Userscript-PipeRun-ClickEnter/main/ClickEnter-Utilities.user.js';
       this.isNewerVersion = false;
     }
 
