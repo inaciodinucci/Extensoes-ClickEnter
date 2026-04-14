@@ -87,7 +87,7 @@
         }
         #talk-panel { 
             background-color: #0b141a !important; 
-            background-image: url('https://raw.githubusercontent.com/inaciodinucci/Userscript-PipeRun-ClickEnter/refs/heads/main/icons/bg_talk-2.png) !important;
+            background-image: url('https://raw.githubusercontent.com/inaciodinucci/Userscript-PipeRun-ClickEnter/refs/heads/main/icons/bg_talk-2.png') !important;
             background-repeat: repeat !important;
         }
         img[src*="logo.png"] {
