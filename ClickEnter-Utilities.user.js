@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ClickEnter Utilities
 // @namespace    http://tampermonkey.net/
-// @version      0.0.5
+// @version      0.0.7
 // @description  Utilitários para melhorar a produtividade de atendimento no PipeRun
 // @author       inaciodinucci
 // @match        https://synsuite.clickenter.com.br/*
@@ -83,16 +83,16 @@
     darkStyle.id = 'ce-dark-mode-style';
     // Estilo inicial mitigador de FOUC e personalização profunda sobre o layout original
     darkStyle.textContent = `
-          html, body, #wrapper, #page-wrapper, .gray-bg, .wrapper-content { 
-              background-color: #0b141a !important; 
+          html, body, #wrapper, #page-wrapper, .gray-bg, .wrapper-content {
+              background-color: #0b141a !important;
           }
           #navbar, #navbar.navbar-default, .navbar.navbar-default,
           #navbar-container, .navbar-container {
               background-color: #121212 !important;
               border-color: #1e1e1e !important;
           }
-          #talk-panel { 
-              background-color: #0b141a !important; 
+          #talk-panel {
+              background-color: #0b141a !important;
               background-image: url('https://raw.githubusercontent.com/inaciodinucci/Userscript-PipeRun-ClickEnter/refs/heads/main/icons/bg_talk-2.png') !important;
               background-repeat: repeat !important;
           }
@@ -101,43 +101,43 @@
           }
 
           /* Bolha do atendente (Eu) */
-          .talk-message-group.me .talk-message, .talk-message-group.me .bubble, .message-content.right, [class*="sent"] { 
+          .talk-message-group.me .talk-message, .talk-message-group.me .bubble, .message-content.right, [class*="sent"] {
               background-color: #144D37 !important;
               --darkreader-inline-bgcolor: #144D37 !important;
-              color: #e9edef !important; 
+              color: #e9edef !important;
               border: 1px solid #1a5f43 !important;
               box-shadow: 0 1px 0.5px rgba(11,20,26,.13) !important;
           }
           /* Fundo de mensagem respondida (Eu) */
           .talk-message-group.me .talk-reply-container,
           .talk-message-group.me .talk-message-reply,
-          .talk-message-group.me .talk-reply-body { 
+          .talk-message-group.me .talk-reply-body {
               background-color: #103E2C !important;
               --darkreader-inline-bgcolor: #103E2C !important;
               border-left: 3px solid #1a5f43 !important;
           }
 
           /* Bolha do cliente */
-          .talk-message-group:not(.me) .talk-message, .talk-message-group:not(.me) .bubble, .message-content:not(.right) { 
+          .talk-message-group:not(.me) .talk-message, .talk-message-group:not(.me) .bubble, .message-content:not(.right) {
               background-color: #242626 !important;
               --darkreader-inline-bgcolor: #242626 !important;
-              color: #e9edef !important; 
+              color: #e9edef !important;
               border: 1px solid #3a3c3c !important;
               box-shadow: 0 1px 0.5px rgba(11,20,26,.13) !important;
           }
           /* Fundo de mensagem respondida (Cliente) */
           .talk-message-group:not(.me) .talk-reply-container,
           .talk-message-group:not(.me) .talk-message-reply,
-          .talk-message-group:not(.me) .talk-reply-body { 
+          .talk-message-group:not(.me) .talk-reply-body {
               background-color: #1D1E1E !important;
               --darkreader-inline-bgcolor: #1D1E1E !important;
               border-left: 3px solid #3a3c3c !important;
           }
 
           /* Texto legível sem interferir em mídias */
-          .talk-reply-container *, .talk-message-text, .talk-message-group .talk-message-text *, 
+          .talk-reply-container *, .talk-message-text, .talk-message-group .talk-message-text *,
           .talk-customer-name, strong, b, h1, h2, h3, h4, h5, h6 {
-              opacity: 1 !important; 
+              opacity: 1 !important;
               color: #e9edef !important;
               text-shadow: none !important;
               -webkit-font-smoothing: antialiased !important;
@@ -365,30 +365,26 @@
       // Força as cores corretas nos balões via JS (evitando recursão infinita e garantindo fidelidade)
       const forceBubbleColors = () => {
         const colorMap = [
-          { sel: '.talk-message-group.me .talk-message, .talk-message-group.me .bubble, .message-content.right, [class*="sent"]', bg: '#144D37', rgb: 'rgb(20, 77, 55)' },
-          { sel: '.talk-message-group.me .talk-reply-container, .talk-message-group.me .talk-reply-body, .talk-message-group.me .talk-message-reply, .talk-message-group.me [class*="reply"]', bg: '#103E2C', rgb: 'rgb(16, 62, 44)' },
+          { sel: '.talk-message-group.me .talk-message, .talk-message-group.me .bubble, .message-content.right', bg: '#144D37', rgb: 'rgb(20, 77, 55)' },
+          { sel: '.talk-message-group.me .talk-reply-container, .talk-message-group.me .talk-reply-body, .talk-message-group.me .talk-message-reply', bg: '#103E2C', rgb: 'rgb(16, 62, 44)' },
           { sel: '.talk-message-group:not(.me) .talk-message, .talk-message-group:not(.me) .bubble, .message-content:not(.right)', bg: '#242626', rgb: 'rgb(36, 38, 38)' },
-          { sel: '.talk-message-group:not(.me) .talk-reply-container, .talk-message-group:not(.me) .talk-reply-body, .talk-message-group:not(.me) .talk-message-reply, .talk-message-group:not(.me) [class*="reply"]', bg: '#1D1E1E', rgb: 'rgb(29, 30, 30)' }
+          { sel: '.talk-message-group:not(.me) .talk-reply-container, .talk-message-group:not(.me) .talk-reply-body, .talk-message-group:not(.me) .talk-message-reply', bg: '#1D1E1E', rgb: 'rgb(29, 30, 30)' }
         ];
         colorMap.forEach(({ sel, bg, rgb }) => {
           document.querySelectorAll(sel).forEach(el => {
             const currentBG = window.getComputedStyle(el).backgroundColor;
-            // Comparação normalizada (remove espaços e ignora alpha se 1)
-            const normBG = currentBG.replace(/\s/g, '').replace('rgba', 'rgb').replace(',1)', ')');
-            const normTarget = rgb.replace(/\s/g, '');
-            
-            if (normBG !== normTarget && currentBG !== bg) {
-                el.style.setProperty('background-color', bg, 'important');
-                el.setAttribute('data-darkreader-inline-bgcolor', bg);
-                el.style.setProperty('--darkreader-inline-bgcolor', bg, 'important');
+            if (currentBG !== rgb && currentBG !== bg) {
+              el.style.setProperty('background-color', bg, 'important');
+              el.setAttribute('data-darkreader-inline-bgcolor', bg);
+              el.style.setProperty('--darkreader-inline-bgcolor', bg, 'important');
             }
             if (el.style.backgroundImage !== 'none') {
-                el.style.setProperty('background-image', 'none', 'important');
-                el.style.setProperty('--darkreader-inline-bgimage', 'none', 'important');
+              el.style.setProperty('background-image', 'none', 'important');
+              el.style.setProperty('--darkreader-inline-bgimage', 'none', 'important');
             }
             if (window.getComputedStyle(el).filter !== 'none' || window.getComputedStyle(el).mixBlendMode !== 'normal') {
-                el.style.setProperty('filter', 'none', 'important');
-                el.style.setProperty('mix-blend-mode', 'normal', 'important');
+              el.style.setProperty('filter', 'none', 'important');
+              el.style.setProperty('mix-blend-mode', 'normal', 'important');
             }
           });
         });
@@ -397,12 +393,12 @@
         if (nav) {
           const navBG = window.getComputedStyle(nav).backgroundColor;
           if (navBG !== 'rgb(18, 18, 18)' && navBG !== '#121212') {
-              nav.style.setProperty('background-color', '#121212', 'important');
-              nav.style.setProperty('--darkreader-inline-bgcolor', '#121212', 'important');
-              nav.setAttribute('data-darkreader-inline-bgcolor', '#121212');
+            nav.style.setProperty('background-color', '#121212', 'important');
+            nav.style.setProperty('--darkreader-inline-bgcolor', '#121212', 'important');
+            nav.setAttribute('data-darkreader-inline-bgcolor', '#121212');
           }
           if (window.getComputedStyle(nav).filter !== 'none') {
-              nav.style.setProperty('filter', 'none', 'important');
+            nav.style.setProperty('filter', 'none', 'important');
           }
         }
       };
@@ -596,12 +592,14 @@
 
       let transferTimestamp = null;
       if (containerMensagem) {
-        const msgs = containerMensagem.querySelectorAll('.talk-message-text');
+        const msgs = containerMensagem.querySelectorAll('.talk-message-text, .message-text');
         const msgTransf = Array.from(msgs).find(el => el.textContent.includes('Atendimento transferido') || el.textContent.includes('fila'));
         if (msgTransf) {
-          const infoEl = msgTransf.parentElement.querySelector('.talk-message-info');
-          if (infoEl && infoEl.dataset.datetime) {
-            transferTimestamp = this._parseDataPipeRun(infoEl.dataset.datetime);
+          const messageBox = msgTransf.closest('.talk-message-group, .message-box');
+          const infoEl = messageBox ? messageBox.querySelector('.talk-message-info, .message-timestamp') : null;
+          if (infoEl) {
+            const dt = infoEl.dataset.datetime || infoEl.getAttribute('title') || infoEl.textContent;
+            if (dt) transferTimestamp = this._parseDataPipeRun(dt.trim());
           }
         }
       }
@@ -751,16 +749,31 @@
       const container = document.getElementById('talk-panel');
       if (!container) return msgs;
 
-      const elementosMsg = container.querySelectorAll('.talk-message-group');
+      const elementosMsg = container.querySelectorAll('.talk-message-group, .message-box');
       elementosMsg.forEach(el => {
-        const infoEl = el.querySelector('.talk-message-info');
-        if (!infoEl) return;
-        const rawInfo = infoEl.textContent.trim(); // ex: "91985251951 em 10/03/2026 10:56" ou "PipeBot em 10/03..."
-        const partesInfo = rawInfo.split(' em ');
-        const autor = partesInfo[0] ? partesInfo[0].trim() : 'Desconhecido';
-        const hora = partesInfo[1] ? partesInfo[1].trim() : '';
+        let autor = 'Desconhecido';
+        let hora = '';
 
-        const textEl = el.querySelector('.talk-message-text');
+        if (el.classList.contains('message-box')) {
+          const isOut = el.classList.contains('message-out');
+          if (isOut) {
+            const agentSpan = el.querySelector('.message-agent span');
+            autor = agentSpan ? agentSpan.textContent.trim() : 'Atendente';
+          } else {
+            autor = 'Cliente';
+          }
+          const timeEl = el.querySelector('.message-timestamp');
+          if (timeEl) hora = timeEl.getAttribute('title') || timeEl.textContent.trim();
+        } else {
+          const infoEl = el.querySelector('.talk-message-info');
+          if (!infoEl) return;
+          const rawInfo = infoEl.textContent.trim();
+          const partesInfo = rawInfo.split(' em ');
+          autor = partesInfo[0] ? partesInfo[0].trim() : 'Desconhecido';
+          hora = partesInfo[1] ? partesInfo[1].trim() : '';
+        }
+
+        const textEl = el.querySelector('.talk-message-text, .message-text');
         if (!textEl) return;
 
         let texto = textEl.innerText.trim();
@@ -773,7 +786,6 @@
           }
         }
 
-        // Remove pipebot e mensagens do sistema de encaminhamento/transferência (feedback do usuário)
         if (autor.toLowerCase().includes('pipebot')) return;
         const lowerTexto = texto.toLowerCase();
         if (lowerTexto.includes('atendimento transferido') ||
@@ -1294,6 +1306,7 @@
                   color: #6b7280; font-size: 12px; font-style: italic;
                   padding: 6px 0 2px; margin-top: 4px;
                   border-top: 1px solid #e5e7eb; line-height: 1.4;
+                  display: block; width: 100%; flex-basis: 100%;
                 }
                 @keyframes ce-spin {
                   from { transform: rotate(0deg); }
@@ -2127,7 +2140,7 @@
       const isAberto = painel && painel.style.right === '0px';
       if (!isAberto) return;
 
-      const nomeElement = document.querySelector('#customer-name');
+      const nomeElement = document.querySelector('.talk-card.active .customer-name, #customer-name, .talk-customer-name-header, .panel-title, .talk-title');
       const nomeCliente = nomeElement ? nomeElement.textContent.trim() : 'Desconhecido';
       if (nomeCliente !== this.clienteAtual) {
         this._sincronizarCliente();
@@ -2138,7 +2151,7 @@
     }
 
     _sincronizarCliente() {
-      const nomeElement = document.querySelector('#customer-name');
+      const nomeElement = document.querySelector('.talk-card.active .customer-name, #customer-name, .talk-customer-name-header, .panel-title, .talk-title');
       const nomeCliente = nomeElement ? nomeElement.textContent.trim() : 'Desconhecido';
       this.clienteAtual = nomeCliente;
 
@@ -2384,12 +2397,12 @@
     }
 
     injetarTimersNaSidebar() {
-      const talkButtons = document.querySelectorAll('.talk-button');
+      const talkButtons = document.querySelectorAll('.talk-button, .talk-card');
       const timer = this.ui.timer;
       const activeClients = new Set();
 
       talkButtons.forEach(btn => {
-        const nameEl = btn.querySelector('.talk-customer-name');
+        const nameEl = btn.querySelector('.talk-customer-name, h3.customer-name');
         if (nameEl) {
           const clientName = nameEl.textContent.trim();
           if (clientName && clientName !== 'Desconhecido') activeClients.add(clientName);
@@ -2398,7 +2411,7 @@
 
       const talkPanel = document.getElementById('talk-panel');
       if (talkPanel) {
-        const nomeEl = document.querySelector('.talk-customer-name-header');
+        const nomeEl = document.querySelector('.talk-card.active .customer-name, .talk-customer-name-header, .panel-title, .talk-title');
         if (nomeEl) {
           const nome = nomeEl.textContent.trim();
           if (nome && nome !== 'Desconhecido') activeClients.add(nome);
@@ -2419,10 +2432,11 @@
       if (!talkButtons.length) return;
 
       talkButtons.forEach(btn => {
-        const nameEl = btn.querySelector('.talk-customer-name');
+        const nameEl = btn.querySelector('.talk-customer-name, h3.customer-name');
         if (!nameEl) return;
         const clientName = nameEl.textContent.trim();
-        const pullLeft = btn.querySelector('.pull-left.align-left');
+        let pullLeft = btn.querySelector('.pull-left.align-left, .channel-info');
+        if (!pullLeft) pullLeft = btn;
 
         if (btn.style.position !== 'relative') btn.style.position = 'relative';
 
@@ -2531,21 +2545,22 @@
       if (!this.ui.tma) return;
 
       // Escanear sidebar e registrar todos os clientes visíveis
-      const talkButtons = document.querySelectorAll('.talk-button');
+      const talkButtons = document.querySelectorAll('.talk-button, .talk-card');
       const sidebarClients = new Set();
 
       talkButtons.forEach(btn => {
-        const nameEl = btn.querySelector('.talk-customer-name');
+        const nameEl = btn.querySelector('.talk-customer-name, h3.customer-name');
         if (!nameEl) return;
         const clientName = nameEl.textContent.trim();
         if (!clientName || clientName === 'Desconhecido') return;
         sidebarClients.add(clientName);
 
         // Usar datetime da sidebar como fallback para registro inicial
-        const timeEl = btn.querySelector('.align-right.smaller-80');
+        const timeEl = btn.querySelector('.align-right.smaller-80, .last-message-at');
         let sidebarTs = null;
         if (timeEl) {
-          sidebarTs = this.ui.tma._parseDataPipeRun(timeEl.textContent.trim());
+          let tsText = timeEl.getAttribute('title') || timeEl.textContent;
+          sidebarTs = this.ui.tma._parseDataPipeRun(tsText.replace('Data/hora da última mensagem: ', '').trim());
         }
         this.ui.tma.registrarOuAtualizar(clientName, null, sidebarTs);
       });
@@ -2553,7 +2568,7 @@
       // Registrar TMA para o cliente atualmente aberto (com timestamp preciso da msg de transferência)
       const talkPanel = document.getElementById('talk-panel');
       if (talkPanel) {
-        const nomeEl = document.querySelector('.talk-customer-name-header');
+        const nomeEl = document.querySelector('.talk-card.active .customer-name, .talk-customer-name-header, .panel-title, .talk-title');
         if (nomeEl) {
           const nome = nomeEl.textContent.trim();
           if (nome && nome !== 'Desconhecido') {
@@ -2620,6 +2635,8 @@
         if (!urlEl) return;
         const audioUrl = urlEl.textContent.trim();
         if (!audioUrl) return;
+
+        audioDiv.style.flexWrap = 'wrap';
 
         const urlHash = audioUrl.split('/').pop().replace(/\./g, '_');
 
