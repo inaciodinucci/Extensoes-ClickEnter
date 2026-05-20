@@ -1,7 +1,11 @@
 // ==UserScript==
 // @name         ClickEnter Utilities
 // @namespace    http://tampermonkey.net/
+<<<<<<< HEAD
 // @version      0.0.8
+=======
+// @version      0.0.7
+>>>>>>> 69151041a943e55359dcb388733d82e7e45ae764
 // @description  Utilitários para melhorar a produtividade de atendimento no PipeRun
 // @author       inaciodinucci
 // @match        https://synsuite.clickenter.com.br/*
