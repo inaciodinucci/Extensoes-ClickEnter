@@ -1,12 +1,14 @@
 // ==UserScript==
 // @name         ClickEnter Utilities
 // @namespace    http://tampermonkey.net/
-// @version      0.0.5
+// @version      0.0.8
 // @description  Utilitários para melhorar a produtividade de atendimento no PipeRun
 // @author       inaciodinucci
 // @match        https://synsuite.clickenter.com.br/*
 // @match        https://clickenter.cxm.pipe.run/agent*
+// @run-at       document-start
 // @grant        GM_xmlhttpRequest
+// @require      https://cdn.jsdelivr.net/npm/darkreader@4.9.92/darkreader.min.js
 // @downloadURL  https://raw.githubusercontent.com/inaciodinucci/Userscript-PipeRun-ClickEnter/main/ClickEnter-Utilities.user.js
 // @updateURL    https://raw.githubusercontent.com/inaciodinucci/Userscript-PipeRun-ClickEnter/main/ClickEnter-Utilities.user.js
 // @connect      generativelanguage.googleapis.com
@@ -14,15 +16,17 @@
 // @connect      api.groq.com
 // @connect      openrouter.ai
 // @connect      clickenter.cxm.pipe.run
+// @connect      raw.githubusercontent.com
 // ==/UserScript==
 
 (function () {
   'use strict';
 
-  console.log('Userscript carregado: ClickEnter Utilities v2');
+  console.log('Userscript carregado: ClickEnter Utilities');
 
   const CONFIG = {
     KEYS: {
+      THEME: 'clickenter_theme',
       LEMBRETES: 'clickenter_lembretes',
       MENSAGENS: 'clickenter_mensagens',
       AI_PROVIDER: 'clickenter_ai_provider',
@@ -71,6 +75,397 @@
     }
   }
 
+  // ==== INJEÇÃO ANTI-FOUC MODO ESCURO ====
+  const foucStorage = new StorageManager();
+  const currentTheme = foucStorage.obter('clickenter_theme', 'claro');
+  if (currentTheme === 'escuro') {
+    const darkStyle = document.createElement('style');
+    darkStyle.id = 'ce-dark-mode-style';
+    // Estilo inicial mitigador de FOUC e personalização profunda sobre o layout original
+    darkStyle.textContent = `
+          html, body, #wrapper, #page-wrapper, .gray-bg, .wrapper-content {
+              background-color: #0b141a !important;
+          }
+          #navbar, #navbar.navbar-default, .navbar.navbar-default,
+          #navbar-container, .navbar-container {
+              background-color: #121212 !important;
+              border-color: #1e1e1e !important;
+          }
+          #talk-panel {
+              background-color: #0b141a !important;
+              background-image: url('https://raw.githubusercontent.com/inaciodinucci/Userscript-PipeRun-ClickEnter/refs/heads/main/icons/bg_talk-2.png') !important;
+              background-repeat: repeat !important;
+          }
+          img[src*="logo.png"] {
+              content: url('https://raw.githubusercontent.com/inaciodinucci/Userscript-PipeRun-ClickEnter/refs/heads/main/icons/logo.png') !important;
+          }
+
+          /* Bolha do atendente (Eu) */
+          .talk-message-group.me .talk-message, .talk-message-group.me .bubble, .message-content.right, [class*="sent"] {
+              background-color: #144D37 !important;
+              --darkreader-inline-bgcolor: #144D37 !important;
+              color: #e9edef !important;
+              border: 1px solid #1a5f43 !important;
+              box-shadow: 0 1px 0.5px rgba(11,20,26,.13) !important;
+          }
+          /* Fundo de mensagem respondida (Eu) */
+          .talk-message-group.me .talk-reply-container,
+          .talk-message-group.me .talk-message-reply,
+          .talk-message-group.me .talk-reply-body {
+              background-color: #103E2C !important;
+              --darkreader-inline-bgcolor: #103E2C !important;
+              border-left: 3px solid #1a5f43 !important;
+          }
+
+          /* Bolha do cliente */
+          .talk-message-group:not(.me) .talk-message, .talk-message-group:not(.me) .bubble, .message-content:not(.right) {
+              background-color: #242626 !important;
+              --darkreader-inline-bgcolor: #242626 !important;
+              color: #e9edef !important;
+              border: 1px solid #3a3c3c !important;
+              box-shadow: 0 1px 0.5px rgba(11,20,26,.13) !important;
+          }
+          /* Fundo de mensagem respondida (Cliente) */
+          .talk-message-group:not(.me) .talk-reply-container,
+          .talk-message-group:not(.me) .talk-message-reply,
+          .talk-message-group:not(.me) .talk-reply-body {
+              background-color: #1D1E1E !important;
+              --darkreader-inline-bgcolor: #1D1E1E !important;
+              border-left: 3px solid #3a3c3c !important;
+          }
+
+          /* Texto legível sem interferir em mídias */
+          .talk-reply-container *, .talk-message-text, .talk-message-group .talk-message-text *,
+          .talk-customer-name, strong, b, h1, h2, h3, h4, h5, h6 {
+              opacity: 1 !important;
+              color: #e9edef !important;
+              text-shadow: none !important;
+              -webkit-font-smoothing: antialiased !important;
+              filter: none !important;
+          }
+
+          /* Protege checkmarks / ícones de status de leitura */
+          .talk-message-info svg,
+          .talk-message-info img,
+          .talk-message-info i,
+          .talk-message-info .icon-check,
+          .talk-message-info [class*="check"],
+          .talk-message-info [class*="read"],
+          .talk-message-info [class*="delivered"],
+          .talk-message-info [class*="status"],
+          .talk-message-status,
+          .message-status,
+          [class*="msg-check"],
+          [class*="message-check"],
+          [class*="double-check"] {
+              filter: none !important;
+              opacity: 1 !important;
+              color: inherit !important;
+          }
+
+          /* Protege imagens, vídeos e anexos contra inversão de cor */
+          .talk-message-group img:not([src*="logo.png"]),
+          .talk-message-group video,
+          .talk-message-group canvas,
+          .talk-message-group picture,
+          .talk-message-group .attachment-image,
+          .talk-message-group .attachment-video,
+          .talk-message-group .attachment-file,
+          .talk-message-group [class*="attachment"],
+          .talk-message-group [class*="media"],
+          .talk-message-group [class*="thumbnail"],
+          .talk-message-group [class*="preview"],
+          .talk-message-group .file-preview,
+          #talk-panel img:not([src*="logo.png"]),
+          #talk-panel video,
+          #talk-panel canvas {
+              filter: none !important;
+              opacity: 1 !important;
+              mix-blend-mode: normal !important;
+          }
+
+          .emojionearea, .talk-message-field {
+              background-color: #202c33 !important;
+              border: 1px solid #2a3942 !important;
+          }
+      `;
+    if (document.documentElement) {
+      document.documentElement.appendChild(darkStyle);
+    }
+
+    const loadProfessionalDark = () => {
+      if (typeof DarkReader === 'undefined') return;
+
+      DarkReader.setFetchMethod(window.fetch);
+      DarkReader.enable({
+        brightness: 100,
+        contrast: 100,
+        sepia: 0,
+        theme: {
+          mode: 1,
+          darkSchemeBackgroundColor: '#0b141a',
+          darkSchemeTextColor: '#e9edef',
+          selectionColor: '#144D37'
+        },
+        css: `
+            /* Navbar cinza neutro */
+            #navbar, #navbar.navbar-default, .navbar.navbar-default,
+            #navbar-container, .navbar-container {
+              background-color: #121212 !important;
+              border-color: #1e1e1e !important;
+            }
+            /* Bolhas de chat com proteção total */
+            .talk-message-group.me .talk-message,
+            .talk-message-group.me .bubble,
+            .message-content.right,
+            [class*="sent"] {
+              background-color: #144D37 !important;
+              --darkreader-inline-bgcolor: #144D37 !important;
+              color: #e9edef !important;
+              filter: none !important;
+              background-image: none !important;
+            }
+            .talk-message-group.me .talk-reply-container,
+            .talk-message-group.me .talk-reply-body {
+              background-color: #103E2C !important;
+              --darkreader-inline-bgcolor: #103E2C !important;
+              filter: none !important;
+            }
+            .talk-message-group:not(.me) .talk-message,
+            .talk-message-group:not(.me) .bubble,
+            .message-content:not(.right) {
+              background-color: #242626 !important;
+              --darkreader-inline-bgcolor: #242626 !important;
+              color: #e9edef !important;
+              filter: none !important;
+              background-image: none !important;
+            }
+            .talk-message-group:not(.me) .talk-reply-container,
+            .talk-message-group:not(.me) .talk-reply-body {
+              background-color: #1D1E1E !important;
+              --darkreader-inline-bgcolor: #1D1E1E !important;
+              filter: none !important;
+            }
+            /* Protege mídias e anexos */
+            .talk-message-group img,
+            .talk-message-group video,
+            .talk-message-group canvas,
+            .talk-message-group picture,
+            .talk-message-group [class*="attachment"],
+            .talk-message-group [class*="media"],
+            .talk-message-group [class*="thumbnail"],
+            #talk-panel img:not([src*="logo.png"]),
+            #talk-panel video,
+            #talk-panel canvas {
+              filter: none !important;
+              opacity: 1 !important;
+              mix-blend-mode: normal !important;
+            }
+            /* Protege checkmarks de leitura */
+            .talk-message-info svg,
+            .talk-message-info img,
+            .talk-message-info i,
+            .talk-message-info [class*="check"],
+            .talk-message-info [class*="status"],
+            .talk-message-status,
+            [class*="msg-check"],
+            [class*="double-check"] {
+              filter: none !important;
+              opacity: 1 !important;
+            }
+          `
+      });
+
+      // Injeta CSS fix que sobrescreve as CSS variables inline do DarkReader
+      const injectFixCSS = () => {
+        if (document.getElementById('ce-darkreader-fix')) return;
+        const drFixStyle = document.createElement('style');
+        drFixStyle.id = 'ce-darkreader-fix';
+        drFixStyle.className = 'darkreader darkreader--ignore';
+        drFixStyle.textContent = `
+              /* Força navbar neutra escura bloqueando DarkReader inline */
+              #navbar, #navbar.navbar-default, .navbar.navbar-default,
+              #navbar-container, .navbar-container {
+                  background-color: #121212 !important;
+                  --darkreader-inline-bgcolor: #121212 !important;
+                  border-color: #1e1e1e !important;
+                  --darkreader-inline-border-bottom: #1e1e1e !important;
+              }
+              /* Força cores exatas via CSS Variables com Super Especificidade */
+              html body #wrapper #talk-panel .talk-message-group.me .talk-message,
+              html body #wrapper #talk-panel .talk-message-group.me .bubble,
+              html body #wrapper #talk-panel .message-content.right,
+              html body .talk-message-group.me .talk-message {
+                  background-color: #144D37 !important;
+                  --darkreader-inline-bgcolor: #144D37 !important;
+                  background-image: none !important;
+                  filter: none !important;
+                  mix-blend-mode: normal !important;
+              }
+              html body #wrapper #talk-panel .talk-message-group.me .talk-reply-container,
+              html body #wrapper #talk-panel .talk-message-group.me .talk-message-reply,
+              html body #wrapper #talk-panel .talk-message-group.me .talk-reply-body {
+                  background-color: #103E2C !important;
+                  --darkreader-inline-bgcolor: #103E2C !important;
+                  filter: none !important;
+                  mix-blend-mode: normal !important;
+              }
+              html body #wrapper #talk-panel .talk-message-group:not(.me) .talk-message,
+              html body #wrapper #talk-panel .talk-message-group:not(.me) .bubble,
+              html body #wrapper #talk-panel .message-content:not(.right),
+              html body .talk-message-group:not(.me) .talk-message {
+                  background-color: #242626 !important;
+                  --darkreader-inline-bgcolor: #242626 !important;
+                  background-image: none !important;
+                  filter: none !important;
+                  mix-blend-mode: normal !important;
+              }
+              html body #wrapper #talk-panel .talk-message-group:not(.me) .talk-reply-container,
+              html body #wrapper #talk-panel .talk-message-group:not(.me) .talk-message-reply,
+              html body #wrapper #talk-panel .talk-message-group:not(.me) .talk-reply-body {
+                  background-color: #1D1E1E !important;
+                  --darkreader-inline-bgcolor: #1D1E1E !important;
+                  filter: none !important;
+                  mix-blend-mode: normal !important;
+              }
+              /* Protege mídias e checkmarks */
+              .talk-message-group img,
+              .talk-message-group video,
+              .talk-message-group canvas,
+              .talk-message-group picture,
+              .talk-message-group [class*="attachment"] img,
+              .talk-message-group [class*="media"] img,
+              .talk-message-group [class*="thumbnail"],
+              #talk-panel img:not([src*="logo.png"]),
+              #talk-panel video,
+              #talk-panel canvas {
+                  filter: none !important;
+                  opacity: 1 !important;
+                  mix-blend-mode: normal !important;
+              }
+              .talk-message-info svg,
+              .talk-message-info img,
+              .talk-message-info i,
+              .talk-message-info [class*="check"],
+              .talk-message-info [class*="status"],
+              .talk-message-status svg,
+              .talk-message-status img,
+              [class*="msg-check"],
+              [class*="message-check"],
+              [class*="double-check"] {
+                  filter: none !important;
+                  opacity: 1 !important;
+              }
+          `;
+        const target = document.head || document.documentElement;
+        target.appendChild(drFixStyle);
+      };
+      injectFixCSS();
+
+      // Força as cores corretas nos balões via JS (evitando recursão infinita e garantindo fidelidade)
+      const forceBubbleColors = () => {
+        const colorMap = [
+          { sel: '.talk-message-group.me .talk-message, .talk-message-group.me .bubble, .message-content.right', bg: '#144D37', rgb: 'rgb(20, 77, 55)' },
+          { sel: '.talk-message-group.me .talk-reply-container, .talk-message-group.me .talk-reply-body, .talk-message-group.me .talk-message-reply', bg: '#103E2C', rgb: 'rgb(16, 62, 44)' },
+          { sel: '.talk-message-group:not(.me) .talk-message, .talk-message-group:not(.me) .bubble, .message-content:not(.right)', bg: '#242626', rgb: 'rgb(36, 38, 38)' },
+          { sel: '.talk-message-group:not(.me) .talk-reply-container, .talk-message-group:not(.me) .talk-reply-body, .talk-message-group:not(.me) .talk-message-reply', bg: '#1D1E1E', rgb: 'rgb(29, 30, 30)' }
+        ];
+        colorMap.forEach(({ sel, bg, rgb }) => {
+          document.querySelectorAll(sel).forEach(el => {
+            const currentBG = window.getComputedStyle(el).backgroundColor;
+            if (currentBG !== rgb && currentBG !== bg) {
+              el.style.setProperty('background-color', bg, 'important');
+              el.setAttribute('data-darkreader-inline-bgcolor', bg);
+              el.style.setProperty('--darkreader-inline-bgcolor', bg, 'important');
+            }
+            if (el.style.backgroundImage !== 'none') {
+              el.style.setProperty('background-image', 'none', 'important');
+              el.style.setProperty('--darkreader-inline-bgimage', 'none', 'important');
+            }
+            if (window.getComputedStyle(el).filter !== 'none' || window.getComputedStyle(el).mixBlendMode !== 'normal') {
+              el.style.setProperty('filter', 'none', 'important');
+              el.style.setProperty('mix-blend-mode', 'normal', 'important');
+            }
+          });
+        });
+        // Fix navbar para neutro
+        const nav = document.getElementById('navbar');
+        if (nav) {
+          const navBG = window.getComputedStyle(nav).backgroundColor;
+          if (navBG !== 'rgb(18, 18, 18)' && navBG !== '#121212') {
+            nav.style.setProperty('background-color', '#121212', 'important');
+            nav.style.setProperty('--darkreader-inline-bgcolor', '#121212', 'important');
+            nav.setAttribute('data-darkreader-inline-bgcolor', '#121212');
+          }
+          if (window.getComputedStyle(nav).filter !== 'none') {
+            nav.style.setProperty('filter', 'none', 'important');
+          }
+        }
+      };
+
+      // Observer que monitora mudanças do DarkReader e reaplica as cores
+      const startBubbleObserver = () => {
+        if (!document.body) {
+          document.addEventListener('DOMContentLoaded', startBubbleObserver);
+          return;
+        }
+        forceBubbleColors();
+        const observer = new MutationObserver((mutations) => {
+          // Verifica se as mutações são nossas ou do DarkReader
+          // Para simplificar e ser robusto, apenas rodamos se houver mudanças relevantes
+          forceBubbleColors();
+        });
+
+        observer.observe(document.body, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ['style', 'data-darkreader-inline-bgcolor', 'class']
+        });
+
+        // Fail-safe periódico leve
+        setInterval(forceBubbleColors, 2000);
+      };
+      startBubbleObserver();
+    };
+
+    // Aguarda o head existir antes de tentar carregar o DarkReader
+    const waitForHead = (callback) => {
+      if (document.head) { callback(); return; }
+      const obs = new MutationObserver(() => {
+        if (document.head) { obs.disconnect(); callback(); }
+      });
+      obs.observe(document.documentElement, { childList: true });
+    };
+
+    // Tenta inicializar o DarkReader com retry automático
+    const initDarkReader = () => {
+      if (typeof DarkReader !== 'undefined') {
+        loadProfessionalDark();
+      } else {
+        waitForHead(() => {
+          const script = document.createElement('script');
+          script.src = 'https://cdn.jsdelivr.net/npm/darkreader@4.9.92/darkreader.min.js';
+          script.onload = loadProfessionalDark;
+          document.head.appendChild(script);
+        });
+      }
+    };
+
+    // Garante que o DarkReader é inicializado mesmo com timing ruim
+    if (document.readyState === 'loading') {
+      initDarkReader();
+      document.addEventListener('DOMContentLoaded', () => {
+        if (typeof DarkReader !== 'undefined' && !DarkReader.isEnabled()) {
+          loadProfessionalDark();
+        }
+      });
+    } else {
+      initDarkReader();
+    }
+  }
+  // =======================================
+
   class TimerModule {
     constructor(storage) {
       this.storage = storage;
@@ -91,7 +486,7 @@
 
       for (const cliente in data) {
         const t = data[cliente];
-        
+
         if (t.viewed) {
           delete data[cliente];
           changed = true;
@@ -124,9 +519,9 @@
 
     _notificar(cliente, titulo) {
       if (window.Notification && Notification.permission !== 'granted') return;
-      
-      const msgAviso = (titulo && titulo.trim() !== '') 
-        ? `${titulo} (${cliente})` 
+
+      const msgAviso = (titulo && titulo.trim() !== '')
+        ? `${titulo} (${cliente})`
         : `O cronômetro configurado para ${cliente} encerrou.`;
 
       const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
@@ -197,12 +592,14 @@
 
       let transferTimestamp = null;
       if (containerMensagem) {
-        const msgs = containerMensagem.querySelectorAll('.talk-message-text');
+        const msgs = containerMensagem.querySelectorAll('.talk-message-text, .message-text');
         const msgTransf = Array.from(msgs).find(el => el.textContent.includes('Atendimento transferido') || el.textContent.includes('fila'));
         if (msgTransf) {
-          const infoEl = msgTransf.parentElement.querySelector('.talk-message-info');
-          if (infoEl && infoEl.dataset.datetime) {
-            transferTimestamp = this._parseDataPipeRun(infoEl.dataset.datetime);
+          const messageBox = msgTransf.closest('.talk-message-group, .message-box');
+          const infoEl = messageBox ? messageBox.querySelector('.talk-message-info, .message-timestamp') : null;
+          if (infoEl) {
+            const dt = infoEl.dataset.datetime || infoEl.getAttribute('title') || infoEl.textContent;
+            if (dt) transferTimestamp = this._parseDataPipeRun(dt.trim());
           }
         }
       }
@@ -329,10 +726,10 @@
       }
 
       prompt += `Gere um relato CURTO, DIRETO e OBJETIVO do atendimento, em um único parágrafo, sem o uso de markdown, tópicos ou títulos. O relato deve ir direto ao ponto e ser técnico com as alterações ou ações do técnico/atendente.
-      MUITO IMPORTANTE: Escreva o relato na **PRIMEIRA PESSOA DO SINGULAR ("eu fiz", "verifiquei", "orientei")**, pois este texto será copiado e colado pelo atendente (você) no sistema da empresa. Nunca use terceira pessoa como "o atendente fez".
-      Não precisa falar o nome do cliente ou citar o nome dele(a), preferivelmente comece com gênero correto "O/A cliente...". Exemplo do formato exato que eu desejo: "Cliente solicitou troca de senha, fiz a alteração da senha dela e informei sobre ser Case Sensitive, ela entendeu e confirmou. Posteriormente disse que iria testar em casa, e o atendimento foi encerrado."
-      Escreva de forma fluida. Se o atendente forneceu "Anotações Vitais", use-as como o FATO PRINCIPAL da sua resposta; o histórico de chat serve APENAS como contexto secundário.
-      INSTRUÇÃO ADICIONAL: JAMAIS diga que "o atendimento foi transferido", "passei para um humano", "transferi para o suporte" ou seja excessivamente literal sobre os botões/sistemas do chat. Concentre-se no RELATO TÉCNICO do problema e da resolução aplicados.`;
+        MUITO IMPORTANTE: Escreva o relato na **PRIMEIRA PESSOA DO SINGULAR ("eu fiz", "verifiquei", "orientei")**, pois este texto será copiado e colado pelo atendente (você) no sistema da empresa. Nunca use terceira pessoa como "o atendente fez".
+        Não precisa falar o nome do cliente ou citar o nome dele(a), preferivelmente comece com gênero correto "O/A cliente...". Exemplo do formato exato que eu desejo: "Cliente solicitou troca de senha, fiz a alteração da senha dela e informei sobre ser Case Sensitive, ela entendeu e confirmou. Posteriormente disse que iria testar em casa, e o atendimento foi encerrado."
+        Escreva de forma fluida. Se o atendente forneceu "Anotações Vitais", use-as como o FATO PRINCIPAL da sua resposta; o histórico de chat serve APENAS como contexto secundário.
+        INSTRUÇÃO ADICIONAL: JAMAIS diga que "o atendimento foi transferido", "passei para um humano", "transferi para o suporte" ou seja excessivamente literal sobre os botões/sistemas do chat. Concentre-se no RELATO TÉCNICO do problema e da resolução aplicados.`;
 
       // Separa o formato provedor:modelo
       const [provider, ...modelParts] = providerModel.split(':');
@@ -352,16 +749,31 @@
       const container = document.getElementById('talk-panel');
       if (!container) return msgs;
 
-      const elementosMsg = container.querySelectorAll('.talk-message-group');
+      const elementosMsg = container.querySelectorAll('.talk-message-group, .message-box');
       elementosMsg.forEach(el => {
-        const infoEl = el.querySelector('.talk-message-info');
-        if (!infoEl) return;
-        const rawInfo = infoEl.textContent.trim(); // ex: "91985251951 em 10/03/2026 10:56" ou "PipeBot em 10/03..."
-        const partesInfo = rawInfo.split(' em ');
-        const autor = partesInfo[0] ? partesInfo[0].trim() : 'Desconhecido';
-        const hora = partesInfo[1] ? partesInfo[1].trim() : '';
+        let autor = 'Desconhecido';
+        let hora = '';
 
-        const textEl = el.querySelector('.talk-message-text');
+        if (el.classList.contains('message-box')) {
+          const isOut = el.classList.contains('message-out');
+          if (isOut) {
+            const agentSpan = el.querySelector('.message-agent span');
+            autor = agentSpan ? agentSpan.textContent.trim() : 'Atendente';
+          } else {
+            autor = 'Cliente';
+          }
+          const timeEl = el.querySelector('.message-timestamp');
+          if (timeEl) hora = timeEl.getAttribute('title') || timeEl.textContent.trim();
+        } else {
+          const infoEl = el.querySelector('.talk-message-info');
+          if (!infoEl) return;
+          const rawInfo = infoEl.textContent.trim();
+          const partesInfo = rawInfo.split(' em ');
+          autor = partesInfo[0] ? partesInfo[0].trim() : 'Desconhecido';
+          hora = partesInfo[1] ? partesInfo[1].trim() : '';
+        }
+
+        const textEl = el.querySelector('.talk-message-text, .message-text');
         if (!textEl) return;
 
         let texto = textEl.innerText.trim();
@@ -374,7 +786,6 @@
           }
         }
 
-        // Remove pipebot e mensagens do sistema de encaminhamento/transferência (feedback do usuário)
         if (autor.toLowerCase().includes('pipebot')) return;
         const lowerTexto = texto.toLowerCase();
         if (lowerTexto.includes('atendimento transferido') ||
@@ -631,7 +1042,7 @@
   class UpdateManager {
     constructor(currentVersion) {
       this.currentVersion = currentVersion;
-      this.updateUrl = 'https://raw.githubusercontent.com/inaciodinucci/Extensoes-ClickEnter/main/ClickEnter-Utilities.user.js';
+      this.updateUrl = 'https://raw.githubusercontent.com/inaciodinucci/Userscript-PipeRun-ClickEnter/main/ClickEnter-Utilities.user.js';
       this.isNewerVersion = false;
     }
 
@@ -724,183 +1135,184 @@
       const style = document.createElement('style');
       style.id = 'ce-panel-styles';
       style.textContent = `
-              @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-              #${P} * { box-sizing:border-box; }
-              #${P} button {
-                background:#1D6CAE; color:#fff;
-                border:none; padding:7px 14px; border-radius:0; cursor:pointer;
-                font-weight:600; font-size:13px; letter-spacing:0.2px;
-                transition:all 0.2s; box-shadow:0 1px 3px rgba(0,0,0,0.15);
-              }
-              #${P} button:hover { background:#15548a; transform:translateY(-1px); }
-              #${P} button:active { transform:scale(0.98); }
-              #${P} button.danger-btn {
-                background:#ED5565; padding:4px 9px;
-                box-shadow:0 1px 3px rgba(237,85,101,0.3);
-              }
-              #${P} button.danger-btn:hover { background:#d44d5c; }
-              #${P} button.secondary-btn {
-                background:#fff; border:1px solid #d4dfe3; color:#1D6CAE;
-                box-shadow:none; font-weight:500;
-              }
-              #${P} button.secondary-btn:hover { background:#f5f5f5; color:#15548a; }
-              #${P} input, #${P} textarea, #${P} select {
-                background:#fff; border:1px solid #d5d5d5;
-                border-radius:0; padding:9px 12px; font-family:inherit; font-size:13px;
-                color:#262626; transition:all 0.2s;
-              }
-              #${P} select {
-                height:auto; line-height:1.4;
-                text-overflow:ellipsis; white-space:nowrap;
-                overflow:hidden; appearance:auto;
-                padding-right:28px;
-              }
-              #${P} select option { background:#fff; color:#393939; }
-              #${P} hr { border:0; height:1px; background:#d4dfe3; margin:18px 0; }
-              #${P} h3 { margin-top:0; color:#2679B5; font-size:18px; font-weight:400; font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; }
-              #${P} .section-title {
-                color:#2f4050; font-size:12px; font-weight:700; text-transform:uppercase;
-                letter-spacing:0.8px; margin-bottom:8px; display:flex; align-items:center; gap:6px;
-              }
-              #${P} .section-card {
-                background:#fff; border:1px solid #eee;
-                border-radius:0; /* Square cards */
-                padding:12px 14px; margin-bottom:12px;
-                box-shadow:2px 2px 3px rgba(0,0,0,0.05);
-                position:relative;
-              }
-              #${P} .panel-content-scroll {
-                flex: 1; padding: 20px 22px; overflow-y: auto;
-              }
-              #${P} .panel-header {
-                background:#fff; height:65px; min-height:65px;
-                padding:0 20px; display:flex; align-items:center;
-                justify-content:space-between; border-bottom:1px solid rgba(0,0,0,0.05);
-                box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-              }
-              #${P} ul { margin:0; padding:0; list-style:none; }
-              #${P} li {
-                background:#f9f9f9; border:1px solid #eee;
-                border-radius:0; padding:10px 12px; margin-bottom:6px;
-              }
-              .ce-timer-active-button { border-left: 4px solid #1D6CAE !important; background-color: rgba(29, 108, 174, 0.05) !important; transition: all 0.3s ease; }
-              .ce-timer-completed-button { border-left: 4px solid #ED5565 !important; background-color: rgba(237, 85, 101, 0.08) !important; animation: ce-pulse-bg 2s infinite; }
-              @keyframes ce-pulse-bg { 0% { background-color: rgba(237, 85, 101, 0.05); } 50% { background-color: rgba(237, 85, 101, 0.15); } 100% { background-color: rgba(237, 85, 101, 0.05); } }
-              .talk-group { overflow-x: hidden !important; overflow-y: auto !important; scrollbar-width: none !important; }
-              .talk-group::-webkit-scrollbar { display: none !important; }
-              .ce-tma-border-overlay {
-                position: absolute !important; inset: -3px !important;
-                border-radius: 0 !important; overflow: hidden !important;
-                pointer-events: none !important; z-index: 10 !important;
-                padding: 3px !important;
-                -webkit-mask:
-                  linear-gradient(#fff 0 0) content-box,
-                  linear-gradient(#fff 0 0);
-                -webkit-mask-composite: xor;
-                mask-composite: exclude;
-              }
-              .ce-tma-border-spinner {
-                position: absolute !important;
-                top: 50% !important; left: 50% !important;
-                width: 300% !important; height: 300% !important;
-              }
-              .ce-tma-border-spinner.warning {
-                background: conic-gradient(transparent 0deg, transparent 160deg, #ffc10788 180deg, #ffc107 230deg, #ffab00 270deg, #ff9800 310deg, #ff980088 330deg, transparent 340deg, transparent 360deg);
-                animation: ce-spin-ccw 2.5s linear infinite;
-              }
-              .ce-tma-border-spinner.critical {
-                background: conic-gradient(transparent 0deg, transparent 160deg, #ff174488 180deg, #ff1744 230deg, #d50000 270deg, #b71c1c 310deg, #b71c1c88 330deg, transparent 340deg, transparent 360deg);
-                animation: ce-spin-ccw 1.5s linear infinite;
-              }
-              @keyframes ce-spin-ccw {
-                from { transform: translate(-50%, -50%) rotate(360deg); }
-                to { transform: translate(-50%, -50%) rotate(0deg); }
-              }
+                @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+                #${P} * { box-sizing:border-box; }
+                #${P} button {
+                  background:#1D6CAE; color:#fff;
+                  border:none; padding:7px 14px; border-radius:0; cursor:pointer;
+                  font-weight:600; font-size:13px; letter-spacing:0.2px;
+                  transition:all 0.2s; box-shadow:0 1px 3px rgba(0,0,0,0.15);
+                }
+                #${P} button:hover { background:#15548a; transform:translateY(-1px); }
+                #${P} button:active { transform:scale(0.98); }
+                #${P} button.danger-btn {
+                  background:#ED5565; padding:4px 9px;
+                  box-shadow:0 1px 3px rgba(237,85,101,0.3);
+                }
+                #${P} button.danger-btn:hover { background:#d44d5c; }
+                #${P} button.secondary-btn {
+                  background:#fff; border:1px solid #d4dfe3; color:#1D6CAE;
+                  box-shadow:none; font-weight:500;
+                }
+                #${P} button.secondary-btn:hover { background:#f5f5f5; color:#15548a; }
+                #${P} input, #${P} textarea, #${P} select {
+                  background:#fff; border:1px solid #d5d5d5;
+                  border-radius:0; padding:9px 12px; font-family:inherit; font-size:13px;
+                  color:#262626; transition:all 0.2s;
+                }
+                #${P} select {
+                  height:auto; line-height:1.4;
+                  text-overflow:ellipsis; white-space:nowrap;
+                  overflow:hidden; appearance:auto;
+                  padding-right:28px;
+                }
+                #${P} select option { background:#fff; color:#393939; }
+                #${P} hr { border:0; height:1px; background:#d4dfe3; margin:18px 0; }
+                #${P} h3 { margin-top:0; color:#2679B5; font-size:18px; font-weight:400; font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; }
+                #${P} .section-title {
+                  color:#2f4050; font-size:12px; font-weight:700; text-transform:uppercase;
+                  letter-spacing:0.8px; margin-bottom:8px; display:flex; align-items:center; gap:6px;
+                }
+                #${P} .section-card {
+                  background:#fff; border:1px solid #eee;
+                  border-radius:0; /* Square cards */
+                  padding:12px 14px; margin-bottom:12px;
+                  box-shadow:2px 2px 3px rgba(0,0,0,0.05);
+                  position:relative;
+                }
+                #${P} .panel-content-scroll {
+                  flex: 1; padding: 20px 22px; overflow-y: auto;
+                }
+                #${P} .panel-header {
+                  background:#fff; height:65px; min-height:65px;
+                  padding:0 20px; display:flex; align-items:center;
+                  justify-content:space-between; border-bottom:1px solid rgba(0,0,0,0.05);
+                  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+                }
+                #${P} ul { margin:0; padding:0; list-style:none; }
+                #${P} li {
+                  background:#f9f9f9; border:1px solid #eee;
+                  border-radius:0; padding:10px 12px; margin-bottom:6px;
+                }
+                .ce-timer-active-button { border-left: 4px solid #1D6CAE !important; background-color: rgba(29, 108, 174, 0.05) !important; transition: all 0.3s ease; }
+                .ce-timer-completed-button { border-left: 4px solid #ED5565 !important; background-color: rgba(237, 85, 101, 0.08) !important; animation: ce-pulse-bg 2s infinite; }
+                @keyframes ce-pulse-bg { 0% { background-color: rgba(237, 85, 101, 0.05); } 50% { background-color: rgba(237, 85, 101, 0.15); } 100% { background-color: rgba(237, 85, 101, 0.05); } }
+                .talk-group { overflow-x: hidden !important; overflow-y: auto !important; scrollbar-width: none !important; }
+                .talk-group::-webkit-scrollbar { display: none !important; }
+                .ce-tma-border-overlay {
+                  position: absolute !important; inset: -3px !important;
+                  border-radius: 0 !important; overflow: hidden !important;
+                  pointer-events: none !important; z-index: 10 !important;
+                  padding: 3px !important;
+                  -webkit-mask:
+                    linear-gradient(#fff 0 0) content-box,
+                    linear-gradient(#fff 0 0);
+                  -webkit-mask-composite: xor;
+                  mask-composite: exclude;
+                }
+                .ce-tma-border-spinner {
+                  position: absolute !important;
+                  top: 50% !important; left: 50% !important;
+                  width: 300% !important; height: 300% !important;
+                }
+                .ce-tma-border-spinner.warning {
+                  background: conic-gradient(transparent 0deg, transparent 160deg, #ffc10788 180deg, #ffc107 230deg, #ffab00 270deg, #ff9800 310deg, #ff980088 330deg, transparent 340deg, transparent 360deg);
+                  animation: ce-spin-ccw 2.5s linear infinite;
+                }
+                .ce-tma-border-spinner.critical {
+                  background: conic-gradient(transparent 0deg, transparent 160deg, #ff174488 180deg, #ff1744 230deg, #d50000 270deg, #b71c1c 310deg, #b71c1c88 330deg, transparent 340deg, transparent 360deg);
+                  animation: ce-spin-ccw 1.5s linear infinite;
+                }
+                @keyframes ce-spin-ccw {
+                  from { transform: translate(-50%, -50%) rotate(360deg); }
+                  to { transform: translate(-50%, -50%) rotate(0deg); }
+                }
 
-              .ce-alert-icon {
-                position: absolute;
-                left: 20px;
-                top: 36px;
-                background: #fff;
-                border-radius: 0;
-                font-size: 14px;
-                line-height: 1;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-                z-index: 10;
-              }
+                .ce-alert-icon {
+                  position: absolute;
+                  left: 20px;
+                  top: 36px;
+                  background: #fff;
+                  border-radius: 0;
+                  font-size: 14px;
+                  line-height: 1;
+                  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+                  z-index: 10;
+                }
 
-              #${P} .settings-overlay {
-                position:absolute; inset:0; background:#ffffff;
-                z-index:10; padding:28px 22px; overflow:visible; overflow-y:auto;
-                animation:ceFadeIn 0.2s ease;
-              }
-              @keyframes ceFadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-              @keyframes cePulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-              .ce-timer-badge {
-                display:inline-flex; align-items:center; gap:3px; padding:3px 8px;
-                border-radius:0; font-size:11px; font-weight:600; font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
-                margin-left:6px; vertical-align:middle; line-height:1; box-shadow:0 1px 2px rgba(0,0,0,0.1);
-              }
-              .ce-timer-badge.active { background:#1D6CAE; color:#fff; border:1px solid #15548a; }
-              .ce-timer-badge.critical { background:#ED5565; color:#fff; border:1px solid #d44d5c; }
-              .ce-timer-badge.completed {
-                background:#f89406; color:#fff; border:1px solid #c87604;
-                cursor:pointer; animation:cePulse 1.5s ease infinite;
-              }
-              #${CONFIG.DOM_IDS.RESIZE_HANDLE} {
-                position:fixed; top:0; width:6px; height:100%; cursor:col-resize;
-                z-index:1; background:transparent;
-                transition: background 0.15s;
-              }
-              #${CONFIG.DOM_IDS.RESIZE_HANDLE}:hover,
-              #${CONFIG.DOM_IDS.RESIZE_HANDLE}.active {
-                background:rgba(29,108,174,0.35);
-              }
-              #${P} .update-btn {
-                background: #28a745 !important;
-                color: #fff !important;
-                border: none;
-                padding: 5px 10px;
-                font-size: 11px;
-                font-weight: 700;
-                border-radius: 4px;
-                cursor: pointer;
-                animation: ce-pulse-green 2s infinite;
-                display: none;
-                align-items: center;
-                gap: 4px;
-                transition: all 0.2s;
-              }
-              #${P} .update-btn:hover { background: #218838 !important; transform: translateY(-1px); }
-              @keyframes ce-pulse-green {
-                0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.4); }
-                70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
-                100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
-              }
-              .ce-transcribe-btn {
-                display: inline-flex !important; align-items: center; gap: 4px;
-                background: none !important; border: 1px solid #d1d5db !important;
-                color: #6b7280 !important; font-size: 11px !important;
-                padding: 4px 10px !important; margin-top: 6px;
-                cursor: pointer; transition: all 0.2s;
-                font-family: inherit; box-shadow: none !important;
-                border-radius: 4px !important;
-              }
-              .ce-transcribe-btn:hover {
-                background: #f3f4f6 !important; color: #374151 !important;
-                border-color: #9ca3af !important; transform: none !important;
-              }
-              .ce-transcribe-btn:disabled { opacity: 0.7; cursor: wait; }
-              .ce-transcription-text {
-                color: #6b7280; font-size: 12px; font-style: italic;
-                padding: 6px 0 2px; margin-top: 4px;
-                border-top: 1px solid #e5e7eb; line-height: 1.4;
-              }
-              @keyframes ce-spin {
-                from { transform: rotate(0deg); }
-                to { transform: rotate(360deg); }
-              }
-            `;
+                #${P} .settings-overlay {
+                  position:absolute; inset:0; background:#ffffff;
+                  z-index:10; padding:28px 22px; overflow:visible; overflow-y:auto;
+                  animation:ceFadeIn 0.2s ease;
+                }
+                @keyframes ceFadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+                @keyframes cePulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+                .ce-timer-badge {
+                  display:inline-flex; align-items:center; gap:3px; padding:3px 8px;
+                  border-radius:0; font-size:11px; font-weight:600; font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
+                  margin-left:6px; vertical-align:middle; line-height:1; box-shadow:0 1px 2px rgba(0,0,0,0.1);
+                }
+                .ce-timer-badge.active { background:#1D6CAE; color:#fff; border:1px solid #15548a; }
+                .ce-timer-badge.critical { background:#ED5565; color:#fff; border:1px solid #d44d5c; }
+                .ce-timer-badge.completed {
+                  background:#f89406; color:#fff; border:1px solid #c87604;
+                  cursor:pointer; animation:cePulse 1.5s ease infinite;
+                }
+                #${CONFIG.DOM_IDS.RESIZE_HANDLE} {
+                  position:fixed; top:0; width:6px; height:100%; cursor:col-resize;
+                  z-index:1; background:transparent;
+                  transition: background 0.15s;
+                }
+                #${CONFIG.DOM_IDS.RESIZE_HANDLE}:hover,
+                #${CONFIG.DOM_IDS.RESIZE_HANDLE}.active {
+                  background:rgba(29,108,174,0.35);
+                }
+                #${P} .update-btn {
+                  background: #28a745 !important;
+                  color: #fff !important;
+                  border: none;
+                  padding: 5px 10px;
+                  font-size: 11px;
+                  font-weight: 700;
+                  border-radius: 4px;
+                  cursor: pointer;
+                  animation: ce-pulse-green 2s infinite;
+                  display: none;
+                  align-items: center;
+                  gap: 4px;
+                  transition: all 0.2s;
+                }
+                #${P} .update-btn:hover { background: #218838 !important; transform: translateY(-1px); }
+                @keyframes ce-pulse-green {
+                  0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.4); }
+                  70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
+                  100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+                }
+                .ce-transcribe-btn {
+                  display: inline-flex !important; align-items: center; gap: 4px;
+                  background: none !important; border: 1px solid #d1d5db !important;
+                  color: #6b7280 !important; font-size: 11px !important;
+                  padding: 4px 10px !important; margin-top: 6px;
+                  cursor: pointer; transition: all 0.2s;
+                  font-family: inherit; box-shadow: none !important;
+                  border-radius: 4px !important;
+                }
+                .ce-transcribe-btn:hover {
+                  background: #f3f4f6 !important; color: #374151 !important;
+                  border-color: #9ca3af !important; transform: none !important;
+                }
+                .ce-transcribe-btn:disabled { opacity: 0.7; cursor: wait; }
+                .ce-transcription-text {
+                  color: #6b7280; font-size: 12px; font-style: italic;
+                  padding: 6px 0 2px; margin-top: 4px;
+                  border-top: 1px solid #e5e7eb; line-height: 1.4;
+                  display: block; width: 100%; flex-basis: 100%;
+                }
+                @keyframes ce-spin {
+                  from { transform: rotate(0deg); }
+                  to { transform: rotate(360deg); }
+                }
+              `;
       document.head.appendChild(style);
 
       const header = document.createElement('div');
@@ -1055,23 +1467,23 @@
       lbl1.textContent = 'Modelo de I.A.';
       const sel = document.createElement('select');
       sel.innerHTML = `
-        <optgroup label="Gemini (Gratuito)">
-          <option value="gemini:gemini-3.1-flash-lite-preview">Gemini 3.1 Flash Lite Preview</option>
-        </optgroup>
-        <optgroup label="Groq (Gratuito — 14.400 req/dia)">
-          <option value="groq:llama-3.3-70b-versatile">Llama 3.3 70B Versatile</option>
-          <option value="groq:llama-3.1-8b-instant">Llama 3.1 8B Instant</option>
-          <option value="groq:qwen-2.5-32b">Qwen 2.5 32B</option>
-        </optgroup>
-        <optgroup label="OpenRouter (Gratuito — Limites Menores)">
-          <option value="openrouter:openrouter/free">Router Inteligente (Melhor Modelo Livre)</option>
-          <option value="openrouter:meta-llama/llama-3.2-3b-instruct:free">Llama 3.2 3B Instruct</option>
-          <option value="openrouter:qwen/qwen-2.5-coder-32b-instruct:free">Qwen 2.5 Coder 32B</option>
-        </optgroup>
-        <optgroup label="OpenAI (Pago)">
-          <option value="chatgpt:gpt-3.5-turbo">GPT-3.5 Turbo</option>
-        </optgroup>
-      `;
+          <optgroup label="Gemini (Gratuito)">
+            <option value="gemini:gemini-3.1-flash-lite-preview">Gemini 3.1 Flash Lite Preview</option>
+          </optgroup>
+          <optgroup label="Groq (Gratuito — 14.400 req/dia)">
+            <option value="groq:llama-3.3-70b-versatile">Llama 3.3 70B Versatile</option>
+            <option value="groq:llama-3.1-8b-instant">Llama 3.1 8B Instant</option>
+            <option value="groq:qwen-2.5-32b">Qwen 2.5 32B</option>
+          </optgroup>
+          <optgroup label="OpenRouter (Gratuito — Limites Menores)">
+            <option value="openrouter:openrouter/free">Router Inteligente (Melhor Modelo Livre)</option>
+            <option value="openrouter:meta-llama/llama-3.2-3b-instruct:free">Llama 3.2 3B Instruct</option>
+            <option value="openrouter:qwen/qwen-2.5-coder-32b-instruct:free">Qwen 2.5 Coder 32B</option>
+          </optgroup>
+          <optgroup label="OpenAI (Pago)">
+            <option value="chatgpt:gpt-3.5-turbo">GPT-3.5 Turbo</option>
+          </optgroup>
+        `;
       const savedProvider = this.storage.obter(CONFIG.KEYS.AI_PROVIDER, 'gemini:gemini-3.1-flash-lite-preview');
       sel.value = savedProvider;
       // Fallback caso valor salvo não corresponda a nenhuma opção
@@ -1205,7 +1617,16 @@
       selMode.innerHTML = '<option value="overlay">Overlay (flutuante sobre a página)</option><option value="chat">Chat (integrado ao lado do chat)</option>';
       selMode.value = this.storage.obter(CONFIG.KEYS.DISPLAY_MODE, 'overlay');
 
-      cardExib.append(cardExibTitle, exibDesc, lblExib, selMode);
+      const lblTema = document.createElement('div');
+      Object.assign(lblTema.style, { fontSize: '12px', color: '#8089A0', marginBottom: '4px', marginTop: '14px' });
+      lblTema.textContent = 'Tema Visual';
+
+      const selTema = document.createElement('select');
+      selTema.style.width = '100%';
+      selTema.innerHTML = '<option value="claro">Claro (Original)</option><option value="escuro">Escuro</option>';
+      selTema.value = this.storage.obter(CONFIG.KEYS.THEME, 'claro');
+
+      cardExib.append(cardExibTitle, exibDesc, lblExib, selMode, lblTema, selTema);
 
       const btnSave = document.createElement('button');
       btnSave.textContent = 'Salvar Configurações';
@@ -1223,11 +1644,18 @@
         if (!isNaN(criticoVal) && criticoVal > 0) this.storage.salvar(CONFIG.KEYS.TMA_CRITICO_MIN, criticoVal);
         const oldMode = this.storage.obter(CONFIG.KEYS.DISPLAY_MODE, 'overlay');
         const newMode = selMode.value;
+        const oldTheme = this.storage.obter(CONFIG.KEYS.THEME, 'claro');
+        const newTheme = selTema.value;
+
         this.storage.salvar(CONFIG.KEYS.DISPLAY_MODE, newMode);
+        this.storage.salvar(CONFIG.KEYS.THEME, newTheme);
         overlay.remove();
         if (oldMode !== newMode) {
           this.fecharPainel();
           setTimeout(() => this.abrirPainel(), 450);
+        }
+        if (oldTheme !== newTheme) {
+          location.reload();
         }
       });
 
@@ -1676,13 +2104,13 @@
         document.head.appendChild(styleEl);
       }
       styleEl.textContent = `
-              #talk-panel,
-              .talk-panel,
-              .talk-commands {
-                width: calc(100% - ${width}px) !important;
-                transition: width 0.15s ease !important;
-              }
-            `;
+                #talk-panel,
+                .talk-panel,
+                .talk-commands {
+                  width: calc(100% - ${width}px) !important;
+                  transition: width 0.15s ease !important;
+                }
+              `;
     }
 
     _limparModoChat() {
@@ -1712,7 +2140,7 @@
       const isAberto = painel && painel.style.right === '0px';
       if (!isAberto) return;
 
-      const nomeElement = document.querySelector('#customer-name');
+      const nomeElement = document.querySelector('.talk-card.active .customer-name, #customer-name, .talk-customer-name-header, .panel-title, .talk-title');
       const nomeCliente = nomeElement ? nomeElement.textContent.trim() : 'Desconhecido';
       if (nomeCliente !== this.clienteAtual) {
         this._sincronizarCliente();
@@ -1723,7 +2151,7 @@
     }
 
     _sincronizarCliente() {
-      const nomeElement = document.querySelector('#customer-name');
+      const nomeElement = document.querySelector('.talk-card.active .customer-name, #customer-name, .talk-customer-name-header, .panel-title, .talk-title');
       const nomeCliente = nomeElement ? nomeElement.textContent.trim() : 'Desconhecido';
       this.clienteAtual = nomeCliente;
 
@@ -1969,12 +2397,12 @@
     }
 
     injetarTimersNaSidebar() {
-      const talkButtons = document.querySelectorAll('.talk-button');
+      const talkButtons = document.querySelectorAll('.talk-button, .talk-card');
       const timer = this.ui.timer;
       const activeClients = new Set();
 
       talkButtons.forEach(btn => {
-        const nameEl = btn.querySelector('.talk-customer-name');
+        const nameEl = btn.querySelector('.talk-customer-name, h3.customer-name');
         if (nameEl) {
           const clientName = nameEl.textContent.trim();
           if (clientName && clientName !== 'Desconhecido') activeClients.add(clientName);
@@ -1983,7 +2411,7 @@
 
       const talkPanel = document.getElementById('talk-panel');
       if (talkPanel) {
-        const nomeEl = document.querySelector('.talk-customer-name-header');
+        const nomeEl = document.querySelector('.talk-card.active .customer-name, .talk-customer-name-header, .panel-title, .talk-title');
         if (nomeEl) {
           const nome = nomeEl.textContent.trim();
           if (nome && nome !== 'Desconhecido') activeClients.add(nome);
@@ -2004,21 +2432,77 @@
       if (!talkButtons.length) return;
 
       talkButtons.forEach(btn => {
-        const nameEl = btn.querySelector('.talk-customer-name');
+        const nameEl = btn.querySelector('.talk-customer-name, h3.customer-name');
         if (!nameEl) return;
         const clientName = nameEl.textContent.trim();
-        const pullLeft = btn.querySelector('.pull-left.align-left');
+        let pullLeft = btn.querySelector('.pull-left.align-left, .channel-info');
+        if (!pullLeft) pullLeft = btn;
 
         if (btn.style.position !== 'relative') btn.style.position = 'relative';
 
         let alertIcon = btn.querySelector('.ce-alert-icon');
 
+        // --- Prioridade: Obter e salvar a cor da borda original ---
+        const statusTMA = this.ui.tma ? this.ui.tma.obterStatus(clientName) : { critico: false, alertar: false };
+        const tmaActive = statusTMA.critico || statusTMA.alertar;
+        const hasOverlay = btn.querySelector('.ce-tma-border-overlay') !== null;
+
+        // Se não há overlay, a borda é a original.
+        // É o momento perfeito para capturar a cor/estilo de borda original atual da página.
+        if (!hasOverlay) {
+          btn.dataset.ceOriginalBorderLeft = btn.style.borderLeft || '';
+          btn.dataset.ceOriginalBorderLeftColor = window.getComputedStyle(btn).borderLeftColor || '';
+        }
+
+        const originalBorderLeftColor = btn.dataset.ceOriginalBorderLeftColor || '';
+
+        // Determinar o texto e a cor da prioridade
+        let priorityText = btn.dataset.cePriorityText;
+        let priorityColor = btn.dataset.cePriorityColor;
+        if (priorityText === undefined || !tmaActive) {
+          const prio = this._getPriorityFromColor(originalBorderLeftColor);
+          if (prio) {
+            priorityText = prio.text;
+            priorityColor = prio.color;
+          } else {
+            priorityText = '';
+            priorityColor = '';
+          }
+          btn.dataset.cePriorityText = priorityText;
+          btn.dataset.cePriorityColor = priorityColor;
+        }
+
+        // Criar, atualizar ou remover o badge de prioridade
+        let prioBadge = btn.querySelector('.ce-priority-badge');
+        if (priorityText) {
+          if (!prioBadge) {
+            prioBadge = document.createElement('span');
+            prioBadge.className = 'ce-priority-badge';
+            const lastMsgAt = btn.querySelector('.last-message-at');
+            if (lastMsgAt) {
+              lastMsgAt.parentNode.insertBefore(prioBadge, lastMsgAt);
+            }
+          }
+
+          const textColor = priorityText === 'Indefinida' ? '#333333' : '#ffffff';
+          if (prioBadge.textContent !== priorityText) {
+            prioBadge.textContent = priorityText;
+          }
+          const badgeCss = `background-color: ${priorityColor} !important; color: ${textColor} !important; font-size: 10px !important; font-weight: 600 !important; padding: 2px 6px !important; border-radius: 4px !important; margin-right: 6px !important; display: inline-block !important; line-height: 1.2 !important; text-transform: uppercase !important; vertical-align: middle !important;`;
+          if (prioBadge.style.cssText !== badgeCss) {
+            prioBadge.style.cssText = badgeCss;
+          }
+        } else {
+          if (prioBadge) {
+            prioBadge.remove();
+          }
+        }
+
         // --- TMA: Borda animada rotativa via overlay ---
         if (this.ui.tma) {
-          const statusTMA = this.ui.tma.obterStatus(clientName);
           let overlay = btn.querySelector('.ce-tma-border-overlay');
 
-          if (statusTMA.critico || statusTMA.alertar) {
+          if (tmaActive) {
             if (!overlay) {
               overlay = document.createElement('div');
               overlay.className = 'ce-tma-border-overlay';
@@ -2033,8 +2517,10 @@
 
             btn.style.borderLeft = statusTMA.critico ? '4px solid #d50000' : '4px solid #faa52eff';
           } else {
-            if (overlay) overlay.remove();
-            btn.style.borderLeft = '';
+            if (overlay) {
+              overlay.remove();
+              btn.style.borderLeft = btn.dataset.ceOriginalBorderLeft || '';
+            }
           }
         }
 
@@ -2116,21 +2602,22 @@
       if (!this.ui.tma) return;
 
       // Escanear sidebar e registrar todos os clientes visíveis
-      const talkButtons = document.querySelectorAll('.talk-button');
+      const talkButtons = document.querySelectorAll('.talk-button, .talk-card');
       const sidebarClients = new Set();
 
       talkButtons.forEach(btn => {
-        const nameEl = btn.querySelector('.talk-customer-name');
+        const nameEl = btn.querySelector('.talk-customer-name, h3.customer-name');
         if (!nameEl) return;
         const clientName = nameEl.textContent.trim();
         if (!clientName || clientName === 'Desconhecido') return;
         sidebarClients.add(clientName);
 
         // Usar datetime da sidebar como fallback para registro inicial
-        const timeEl = btn.querySelector('.align-right.smaller-80');
+        const timeEl = btn.querySelector('.align-right.smaller-80, .last-message-at');
         let sidebarTs = null;
         if (timeEl) {
-          sidebarTs = this.ui.tma._parseDataPipeRun(timeEl.textContent.trim());
+          let tsText = timeEl.getAttribute('title') || timeEl.textContent;
+          sidebarTs = this.ui.tma._parseDataPipeRun(tsText.replace('Data/hora da última mensagem: ', '').trim());
         }
         this.ui.tma.registrarOuAtualizar(clientName, null, sidebarTs);
       });
@@ -2138,7 +2625,7 @@
       // Registrar TMA para o cliente atualmente aberto (com timestamp preciso da msg de transferência)
       const talkPanel = document.getElementById('talk-panel');
       if (talkPanel) {
-        const nomeEl = document.querySelector('.talk-customer-name-header');
+        const nomeEl = document.querySelector('.talk-card.active .customer-name, .talk-customer-name-header, .panel-title, .talk-title');
         if (nomeEl) {
           const nome = nomeEl.textContent.trim();
           if (nome && nome !== 'Desconhecido') {
@@ -2205,6 +2692,8 @@
         if (!urlEl) return;
         const audioUrl = urlEl.textContent.trim();
         if (!audioUrl) return;
+
+        audioDiv.style.flexWrap = 'wrap';
 
         const urlHash = audioUrl.split('/').pop().replace(/\./g, '_');
 
@@ -2282,6 +2771,57 @@
       }
       if (mudou) storage.salvar(CONFIG.KEYS.TRANSCRICOES, transcricoes);
     }
+
+    _getPriorityFromColor(colorStr) {
+      if (!colorStr) return null;
+
+      let r = 0, g = 0, b = 0;
+      const rgbMatch = colorStr.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+      if (rgbMatch) {
+        r = parseInt(rgbMatch[1], 10);
+        g = parseInt(rgbMatch[2], 10);
+        b = parseInt(rgbMatch[3], 10);
+      } else if (colorStr.startsWith('#')) {
+        let hex = colorStr.substring(1);
+        if (hex.length === 3) {
+          hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+        }
+        r = parseInt(hex.substring(0, 2), 16);
+        g = parseInt(hex.substring(2, 4), 16);
+        b = parseInt(hex.substring(4, 6), 16);
+      } else {
+        return null;
+      }
+
+      const priorities = [
+        { name: 'Urgente', r: 209, g: 91, b: 71, hex: '#d15b47' },
+        { name: 'Alta', r: 248, g: 148, b: 6, hex: '#f89406' },
+        { name: 'Alta', r: 250, g: 165, b: 46, hex: '#f89406' },
+        { name: 'Média', r: 58, g: 135, b: 173, hex: '#3a87ad' },
+        { name: 'Baixo', r: 92, g: 184, b: 92, hex: '#5cb85c' },
+        { name: 'Indefinida', r: 243, g: 230, b: 75, hex: '#f3e64b' }
+      ];
+
+      let closest = null;
+      let minDistance = Infinity;
+      for (const prio of priorities) {
+        const dist = Math.sqrt(
+          Math.pow(r - prio.r, 2) +
+          Math.pow(g - prio.g, 2) +
+          Math.pow(b - prio.b, 2)
+        );
+        if (dist < minDistance) {
+          minDistance = dist;
+          closest = prio;
+        }
+      }
+
+      if (minDistance > 35) {
+        return null;
+      }
+
+      return { text: closest.name, color: closest.hex };
+    }
   }
 
   class ClickEnterExtension {
@@ -2302,6 +2842,10 @@
   }
 
   const app = new ClickEnterExtension();
-  app.boot();
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => app.boot());
+  } else {
+    app.boot();
+  }
 
 })();
